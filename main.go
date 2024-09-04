@@ -128,24 +128,3 @@ func (cl *authClient) CreateToken(
 	}
 	return &res, nil
 }
-func AuthenticateMiddleware(
-	next http.HandlerFunc,
-	roles string,
-	topicName string,
-) http.HandlerFunc {
-	next = recoverHandler(next)
-	next = cl.Authenticate(next, roles)
-	next = loggerMiddleware(next, topicName)
-	next = requestMetaMiddleware(next)
-	return next
-}
-
-func UnauthenticateMiddleware(
-	next http.HandlerFunc,
-	topicName string,
-) http.HandlerFunc {
-	next = recoverHandler(next)
-	next = loggerMiddleware(next, topicName)
-	next = requestMetaMiddleware(next)
-	return next
-}

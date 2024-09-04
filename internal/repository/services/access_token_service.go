@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/c0dev0yager/goauth/internal/domain"
 	"github.com/c0dev0yager/goauth/internal/repository/adaptors"
 )
@@ -38,19 +36,13 @@ func (service *AccessTokenService) buildAuthKey(
 
 func (service *AccessTokenService) Add(
 	ctx context.Context,
-	dto domain.AccessTokenDTO,
+	dto *domain.AccessTokenDTO,
 ) (*domain.AccessTokenDTO, error) {
-	rid, err := uuid.NewUUID()
+	err := dto.AddID()
 	if err != nil {
 		return nil, err
 	}
-	dto.RefreshTokenID = domain.RefreshTokenID(rid.String())
 
-	tid, err := uuid.NewUUID()
-	if err != nil {
-		return nil, err
-	}
-	dto.ID = domain.AccessTokenID(tid.String())
 	key := service.buildKey(dto.ID)
 	val, err := json.Marshal(dto)
 	if err != nil {
@@ -64,14 +56,14 @@ func (service *AccessTokenService) Add(
 
 	authKey := service.buildAuthKey(dto.AuthID)
 	mapVal := map[string]string{
-		tid.String(): rid.String(),
+		string(dto.ID): string(dto.RefreshTokenID),
 	}
 	err = service.adaptor.HSet(ctx, authKey, mapVal)
 	if err != nil {
 		return nil, err
 	}
 
-	return &dto, nil
+	return dto, nil
 }
 
 func (service *AccessTokenService) FindById(
@@ -83,11 +75,13 @@ func (service *AccessTokenService) FindById(
 	if err != nil {
 		return nil, err
 	}
+
 	dto := domain.AccessTokenDTO{}
 	err = json.Unmarshal(val, &dto)
 	if err != nil {
 		return nil, err
 	}
+
 	if dto.ID == "" {
 		return nil, nil
 	}
@@ -103,6 +97,7 @@ func (service *AccessTokenService) FindByAuthID(
 	if err != nil {
 		return nil, err
 	}
+
 	response := make([]domain.AccessTokenID, 0)
 	if val == nil {
 		return response, nil
@@ -122,6 +117,7 @@ func (service *AccessTokenService) Delete(
 	if err != nil {
 		return false, err
 	}
+
 	if val == 0 {
 		return false, nil
 	}

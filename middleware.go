@@ -3,7 +3,6 @@ package goauth
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"net/http"
 	"strings"
 
@@ -107,6 +106,28 @@ func requestMetaMiddleware(
 	}
 }
 
+func AuthenticateMiddleware(
+	next http.HandlerFunc,
+	roles string,
+	topicName string,
+) http.HandlerFunc {
+	next = recoverHandler(next)
+	next = cl.Authenticate(next, roles)
+	next = loggerMiddleware(next, topicName)
+	next = requestMetaMiddleware(next)
+	return next
+}
+
+func UnauthenticateMiddleware(
+	next http.HandlerFunc,
+	topicName string,
+) http.HandlerFunc {
+	next = recoverHandler(next)
+	next = loggerMiddleware(next, topicName)
+	next = requestMetaMiddleware(next)
+	return next
+}
+
 func getAuthorizationRoleMap(
 	roleString string,
 ) map[string]bool {
@@ -116,47 +137,4 @@ func getAuthorizationRoleMap(
 		roleMap[role] = true
 	}
 	return roleMap
-}
-
-func GetID(
-	ctx context.Context,
-) string {
-	return ctx.Value(AuthIDKey).(string)
-}
-
-func GetRole(
-	ctx context.Context,
-) string {
-	role := ctx.Value(AuthRoleKey).(string)
-	return role
-}
-
-func getIP(r *http.Request) string {
-	// Get IP from the X-REAL-IP header
-	ip := r.Header.Get("X-REAL-IP")
-	netIP := net.ParseIP(ip)
-	if netIP != nil {
-		return ip
-	}
-
-	// Get IP from X-FORWARDED-FOR header
-	ips := r.Header.Get("X-FORWARDED-FOR")
-	splitIps := strings.Split(ips, ",")
-	for _, ip := range splitIps {
-		netIP := net.ParseIP(ip)
-		if netIP != nil {
-			return ip
-		}
-	}
-
-	// Get IP from RemoteAddr
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return ""
-	}
-	netIP = net.ParseIP(ip)
-	if netIP != nil {
-		return ip
-	}
-	return ""
 }

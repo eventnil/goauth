@@ -3,6 +3,9 @@ package goauth
 import (
 	"context"
 	"errors"
+	"net"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/c0dev0yager/goauth/internal/domain"
@@ -73,4 +76,47 @@ func GetHeaderDTO(
 	}
 	requestHeaderDTO = ctxValue.(RequestHeaderDTO)
 	return requestHeaderDTO
+}
+
+func GetID(
+	ctx context.Context,
+) string {
+	return ctx.Value(AuthIDKey).(string)
+}
+
+func GetRole(
+	ctx context.Context,
+) string {
+	role := ctx.Value(AuthRoleKey).(string)
+	return role
+}
+
+func getIP(r *http.Request) string {
+	// Get IP from the X-REAL-IP header
+	ip := r.Header.Get("X-REAL-IP")
+	netIP := net.ParseIP(ip)
+	if netIP != nil {
+		return ip
+	}
+
+	// Get IP from X-FORWARDED-FOR header
+	ips := r.Header.Get("X-FORWARDED-FOR")
+	splitIps := strings.Split(ips, ",")
+	for _, ip := range splitIps {
+		netIP := net.ParseIP(ip)
+		if netIP != nil {
+			return ip
+		}
+	}
+
+	// Get IP from RemoteAddr
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return ""
+	}
+	netIP = net.ParseIP(ip)
+	if netIP != nil {
+		return ip
+	}
+	return ""
 }

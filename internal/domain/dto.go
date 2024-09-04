@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 type AccessTokenDTO struct {
@@ -14,6 +15,21 @@ type AccessTokenDTO struct {
 	Meta           interface{}    `json:"meta"`
 	ExpiresAt      int64          `json:"expires_at"`
 	CreatedAt      int64          `json:"created_at"`
+}
+
+func (entity *AccessTokenDTO) AddID() error {
+	rid, err := uuid.NewUUID()
+	if err != nil {
+		return err
+	}
+
+	entity.RefreshTokenID = RefreshTokenID(rid.String())
+
+	tid, err := uuid.NewUUID()
+	if err != nil {
+		return err
+	}
+	entity.ID = AccessTokenID(tid.String())
 }
 
 type AuthenticationDTO struct {

@@ -9,7 +9,7 @@ import (
 type IAccessToken interface {
 	Add(
 		ctx context.Context,
-		dto domain.AccessTokenDTO,
+		dto *domain.AccessTokenDTO,
 	) (*domain.AccessTokenDTO, error)
 
 	FindById(
