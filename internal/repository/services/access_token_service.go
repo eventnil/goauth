@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/c0dev0yager/goauth/internal/domain"
-	adaptor "github.com/c0dev0yager/goauth/internal/repository/adaptors"
+	"github.com/c0dev0yager/goauth/internal/repository/adaptors"
 )
 
 type AccessTokenService struct {
