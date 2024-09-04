@@ -13,17 +13,16 @@ import (
 
 type TokenService struct {
 	rep  *repository.TokenRepository
-	sign string
+	sign []byte
 }
 
 func NewTokenService(
 	redisClient *redis.Client,
-	jwtSign string,
+	jwtKey string,
 ) *TokenService {
 	rep := &repository.TokenRepository{}
 	rep.Build(redisClient)
-
-	return &TokenService{rep: rep, sign: jwtSign}
+	return &TokenService{rep: rep, sign: []byte(jwtKey)}
 }
 
 func (s *TokenService) Create(
