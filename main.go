@@ -10,10 +10,47 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/c0dev0yager/goauth/internal"
+	ra "github.com/c0dev0yager/goauth/internal/repository/adaptors"
+	rp "github.com/c0dev0yager/goauth/internal/repository/ports"
+	"github.com/c0dev0yager/goauth/internal/repository/services"
+	ta "github.com/c0dev0yager/goauth/internal/tokens/adaptors"
+	tp "github.com/c0dev0yager/goauth/internal/tokens/ports"
+	ts "github.com/c0dev0yager/goauth/internal/tokens/services"
 )
 
 type Config struct {
 	JwtKey string
+}
+
+type TokenContainer struct {
+	ITokenPort tp.TokenPort
+}
+
+func (container *TokenContainer) build(
+	tr *TokenRepository,
+	jwtKey string,
+) {
+	rep := ta.NewRepositoryAdaptor(tr)
+	jwt := ta.NewJwtAdaptor(jwtKey)
+	container.ITokenPort = ts.NewTokenService(
+		rep,
+		jwt,
+	)
+}
+
+type TokenRepository struct {
+	IAccessToken rp.IAccessToken
+}
+
+func (repository *TokenRepository) build(
+	redisClient *redis.Client,
+) {
+	redisAdaptor := ra.NewRedisAdaptor(
+		redisClient,
+	)
+	repository.IAccessToken = services.NewAccessTokenService(
+		redisAdaptor,
+	)
 }
 
 type authClient struct {
