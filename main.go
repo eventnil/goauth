@@ -30,6 +30,8 @@ func NewSingletonClient(
 	cf Config,
 	rs *redis.Client,
 ) {
+	domain.NewLoggerClient(logrus.InfoLevel)
+
 	cl = &authClient{config: cf, redis: rs}
 
 	tr := &repository.TokenRepository{}
@@ -39,7 +41,7 @@ func NewSingletonClient(
 	tc.Build(tr, cl.config.JwtKey)
 	cl.Tc = tc
 
-	domain.Logger().Info("GoAuthClientInitialised")
+	domain.Logger().Info("GoAuth: ClientInitialised")
 }
 
 func GetClient() *authClient {
