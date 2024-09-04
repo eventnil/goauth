@@ -5,17 +5,17 @@ import (
 
 	domain2 "github.com/c0dev0yager/goauth"
 	"github.com/c0dev0yager/goauth/internal"
-	adaptors2 "github.com/c0dev0yager/goauth/tokens/internal/adaptors"
+	"github.com/c0dev0yager/goauth/internal/tokens/adaptors"
 )
 
 type TokenService struct {
-	rep *adaptors2.RepositoryAdaptor
-	jwt *adaptors2.JWTAdaptor
+	rep *adaptors.RepositoryAdaptor
+	jwt *adaptors.JWTAdaptor
 }
 
 func NewTokenService(
-	rep *adaptors2.RepositoryAdaptor,
-	jwt *adaptors2.JWTAdaptor,
+	rep *adaptors.RepositoryAdaptor,
+	jwt *adaptors.JWTAdaptor,
 ) *TokenService {
 	return &TokenService{rep: rep, jwt: jwt}
 }

@@ -9,14 +9,15 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/c0dev0yager/goauth/internal"
+	adaptor "github.com/c0dev0yager/goauth/internal/repository/adaptors"
 )
 
 type AccessTokenService struct {
-	adaptor *adaptor.adaptor
+	adaptor *adaptor.RedisAdaptor
 }
 
 func NewAccessTokenService(
-	adaptor *adaptor.adaptor,
+	adaptor *adaptor.RedisAdaptor,
 ) *AccessTokenService {
 	return &AccessTokenService{
 		adaptor: adaptor,

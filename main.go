@@ -10,7 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/c0dev0yager/goauth/internal"
-	"github.com/c0dev0yager/goauth/tokens"
 )
 
 type Config struct {
@@ -20,7 +19,7 @@ type Config struct {
 type authClient struct {
 	config Config
 	redis  *redis.Client
-	Tc     *tokens.TokenContainer
+	Tc     *TokenContainer
 }
 
 var cl *authClient
@@ -34,10 +33,10 @@ func NewSingletonClient(
 	cl = &authClient{config: cf, redis: rs}
 
 	tr := &TokenRepository{}
-	tr.Build(rs)
+	tr.build(rs)
 
-	tc := &tokens.TokenContainer{}
-	tc.Build(tr, cl.config.JwtKey)
+	tc := &TokenContainer{}
+	tc.build(tr, cl.config.JwtKey)
 	cl.Tc = tc
 
 	internal.Logger().Info("GoAuth: ClientInitialised")

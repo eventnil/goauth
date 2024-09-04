@@ -1,4 +1,4 @@
-package internal
+package tokens
 
 import (
 	"github.com/golang-jwt/jwt/v5"

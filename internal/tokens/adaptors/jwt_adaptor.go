@@ -9,7 +9,7 @@ import (
 
 	domain2 "github.com/c0dev0yager/goauth"
 	internal2 "github.com/c0dev0yager/goauth/internal"
-	"github.com/c0dev0yager/goauth/tokens/internal"
+	"github.com/c0dev0yager/goauth/internal/tokens"
 )
 
 type JWTAdaptor struct {
@@ -29,7 +29,7 @@ func (adaptor *JWTAdaptor) CreateAccessToken(
 	tokenDTO internal2.AccessTokenDTO,
 ) (domain2.JWTToken, error) {
 	current := &jwt.NumericDate{Time: time.Now().UTC()}
-	claims := internal.JWTCustomClaims{
+	claims := tokens.JWTCustomClaims{
 		ID:   string(tokenDTO.ID),
 		Role: tokenDTO.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -56,7 +56,7 @@ func (adaptor *JWTAdaptor) CreateRefreshToken(
 	tokenDTO internal2.AccessTokenDTO,
 ) (domain2.JWTToken, error) {
 	current := &jwt.NumericDate{Time: time.Now().UTC()}
-	claims := internal.JWTCustomClaims{
+	claims := tokens.JWTCustomClaims{
 		ID:   string(tokenDTO.RefreshTokenID),
 		Role: "refresh",
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -79,10 +79,10 @@ func (adaptor *JWTAdaptor) CreateRefreshToken(
 
 func (adaptor *JWTAdaptor) ValidateJWTToken(
 	tokenString string,
-) (*internal.JWTCustomClaims, error) {
+) (*tokens.JWTCustomClaims, error) {
 	var jwtSignatureKey []byte
 	token, err := jwt.ParseWithClaims(
-		tokenString, &internal.JWTCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+		tokenString, &tokens.JWTCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 			return jwtSignatureKey, nil
 		},
 	)
@@ -92,7 +92,7 @@ func (adaptor *JWTAdaptor) ValidateJWTToken(
 		}
 		return nil, domain2.ErrAuthTokenInvalid
 	}
-	claims, ok := token.Claims.(*internal.JWTCustomClaims)
+	claims, ok := token.Claims.(*tokens.JWTCustomClaims)
 	if !ok {
 		return nil, domain2.ErrAuthTokenMalformed
 	}
