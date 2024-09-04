@@ -1,1 +1,1 @@
-# Go Auth Client
+# Go Redis Auth Client
