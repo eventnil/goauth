@@ -3,32 +3,32 @@ package ports
 import (
 	"context"
 
-	"github.com/c0dev0yager/goauth/internal"
+	"github.com/c0dev0yager/goauth/internal/domain"
 )
 
 type IAccessToken interface {
 	Add(
 		ctx context.Context,
-		dto internal.AccessTokenDTO,
-	) (*internal.AccessTokenDTO, error)
+		dto domain.AccessTokenDTO,
+	) (*domain.AccessTokenDTO, error)
 
 	FindById(
 		ctx context.Context,
-		id internal.AccessTokenID,
-	) (*internal.AccessTokenDTO, error)
+		id domain.AccessTokenID,
+	) (*domain.AccessTokenDTO, error)
 
 	FindByAuthID(
 		ctx context.Context,
-		id internal.AuthID,
-	) ([]internal.AccessTokenID, error)
+		id domain.AuthID,
+	) ([]domain.AccessTokenID, error)
 
 	Delete(
 		ctx context.Context,
-		id internal.AccessTokenID,
+		id domain.AccessTokenID,
 	) (bool, error)
 
 	MultiDelete(
 		ctx context.Context,
-		ids []internal.AccessTokenID,
+		ids []domain.AccessTokenID,
 	) (int64, error)
 }

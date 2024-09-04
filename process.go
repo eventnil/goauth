@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 
-	"github.com/c0dev0yager/goauth/internal"
+	"github.com/c0dev0yager/goauth/internal/domain"
 )
 
 func recoverHandler(
@@ -22,7 +22,7 @@ func recoverHandler(
 	) {
 		defer func() {
 			if err := recover(); err != nil {
-				logger := internal.Logger()
+				logger := domain.Logger()
 				logger.Panic(err)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusInternalServerError)
@@ -41,7 +41,7 @@ func loggerMiddleware(
 		w http.ResponseWriter,
 		r *http.Request,
 	) {
-		logger := internal.Logger()
+		logger := domain.Logger()
 
 		dto := GetHeaderDTO(r.Context())
 		logFields := logrus.Fields{}

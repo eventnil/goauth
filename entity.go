@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/c0dev0yager/goauth/internal"
+	"github.com/c0dev0yager/goauth/internal/domain"
 )
 
 var (
@@ -33,9 +33,9 @@ type CreateToken struct {
 	UniqueID string      `json:"unique_id,omitempty"`
 }
 
-func (e *CreateToken) ToCreateAccessToken() internal.AccessTokenDTO {
-	dto := internal.AccessTokenDTO{
-		AuthID:    internal.AuthID(e.AuthID),
+func (e *CreateToken) ToCreateAccessToken() domain.AccessTokenDTO {
+	dto := domain.AccessTokenDTO{
+		AuthID:    domain.AuthID(e.AuthID),
 		Role:      e.Role,
 		Meta:      e.Meta,
 		ExpiresAt: time.Now().UnixMilli(),

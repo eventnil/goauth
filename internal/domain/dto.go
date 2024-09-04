@@ -1,7 +1,9 @@
-package internal
+package domain
 
 import (
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type AccessTokenDTO struct {
@@ -36,4 +38,22 @@ func (entity *RefreshTokenDTO) ToRefreshTokenDTO(
 	entity.AuthID = dto.AuthID
 	entity.ExpiredAt = time.Now().UnixMilli()
 	entity.CreatedAt = time.Now().UnixMilli()
+}
+
+type CreateTokenResponseDTO struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresAt    int64  `json:"expires_at"`
+}
+
+type JWTPayload struct {
+	ID       string `json:"id"`
+	Role     string `json:"role"`
+	ExpireAt int64  `json:"expireAt"`
+}
+
+type JWTCustomClaims struct {
+	ID   string `json:"id"`
+	Role string `json:"role"`
+	jwt.RegisteredClaims
 }

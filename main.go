@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/c0dev0yager/goauth/internal"
+	"github.com/c0dev0yager/goauth/internal/domain"
 )
 
 type Config struct {
@@ -18,8 +19,7 @@ type Config struct {
 
 type authClient struct {
 	config Config
-	redis  *redis.Client
-	Tc     *internal.TokenContainer
+	ts     *internal.TokenService
 }
 
 var cl *authClient
@@ -28,18 +28,14 @@ func NewSingletonClient(
 	cf Config,
 	rs *redis.Client,
 ) {
-	internal.NewLoggerClient(logrus.InfoLevel)
+	domain.NewLoggerClient(logrus.InfoLevel)
 
-	cl = &authClient{config: cf, redis: rs}
+	cl = &authClient{
+		config: cf,
+		ts:     internal.NewTokenService(rs, cf.JwtKey),
+	}
 
-	tr := &internal.TokenRepository{}
-	tr.Build(rs)
-
-	tc := &internal.TokenContainer{}
-	tc.Build(tr, cl.config.JwtKey)
-	cl.Tc = tc
-
-	internal.Logger().Info("GoAuth: ClientInitialised")
+	domain.Logger().Info("GoAuth: ClientInitialised")
 }
 
 func GetClient() *authClient {
@@ -55,7 +51,7 @@ func GetFromContext(
 		return &logger
 	}
 
-	newLogger := internal.Logger()
+	newLogger := domain.Logger()
 	newLogger.WithField("event", "message")
 	return newLogger
 }
@@ -72,7 +68,7 @@ func (cl *authClient) Authenticate(
 
 		logger := GetFromContext(ctx)
 		tv := r.Header.Get("Authorization")
-		at, err := cl.Tc.ITokenPort.ValidateAccessToken(
+		at, err := cl.ts.ValidateAccessToken(
 			ctx,
 			tv,
 		)
@@ -115,6 +111,23 @@ func (cl *authClient) Authenticate(
 	}
 }
 
+func (cl *authClient) CreateToken(
+	ctx context.Context,
+	dto CreateToken,
+) (*TokenResponseDTO, error) {
+	accessTokenDTO := dto.ToCreateAccessToken()
+
+	tokenResponse, err := cl.ts.Create(ctx, accessTokenDTO)
+	if err != nil {
+		return nil, err
+	}
+	res := TokenResponseDTO{
+		AccessToken:  JWTToken(tokenResponse.AccessToken),
+		RefreshToken: JWTToken(tokenResponse.RefreshToken),
+		ExpiresAt:    tokenResponse.ExpiresAt,
+	}
+	return &res, nil
+}
 func AuthenticateMiddleware(
 	next http.HandlerFunc,
 	roles string,

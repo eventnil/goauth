@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/c0dev0yager/goauth/internal"
+	"github.com/c0dev0yager/goauth/internal/domain"
 	adaptor "github.com/c0dev0yager/goauth/internal/repository/adaptors"
 )
 
@@ -25,32 +25,32 @@ func NewAccessTokenService(
 }
 
 func (service *AccessTokenService) buildKey(
-	id internal.AccessTokenID,
+	id domain.AccessTokenID,
 ) string {
 	return fmt.Sprintf("rat:%s", id)
 }
 
 func (service *AccessTokenService) buildAuthKey(
-	id internal.AuthID,
+	id domain.AuthID,
 ) string {
 	return fmt.Sprintf("rai:%s", id)
 }
 
 func (service *AccessTokenService) Add(
 	ctx context.Context,
-	dto internal.AccessTokenDTO,
-) (*internal.AccessTokenDTO, error) {
+	dto domain.AccessTokenDTO,
+) (*domain.AccessTokenDTO, error) {
 	rid, err := uuid.NewUUID()
 	if err != nil {
 		return nil, err
 	}
-	dto.RefreshTokenID = internal.RefreshTokenID(rid.String())
+	dto.RefreshTokenID = domain.RefreshTokenID(rid.String())
 
 	tid, err := uuid.NewUUID()
 	if err != nil {
 		return nil, err
 	}
-	dto.ID = internal.AccessTokenID(tid.String())
+	dto.ID = domain.AccessTokenID(tid.String())
 	key := service.buildKey(dto.ID)
 	val, err := json.Marshal(dto)
 	if err != nil {
@@ -76,14 +76,14 @@ func (service *AccessTokenService) Add(
 
 func (service *AccessTokenService) FindById(
 	ctx context.Context,
-	id internal.AccessTokenID,
-) (*internal.AccessTokenDTO, error) {
+	id domain.AccessTokenID,
+) (*domain.AccessTokenDTO, error) {
 	key := service.buildKey(id)
 	val, err := service.adaptor.Get(ctx, key)
 	if err != nil {
 		return nil, err
 	}
-	dto := internal.AccessTokenDTO{}
+	dto := domain.AccessTokenDTO{}
 	err = json.Unmarshal(val, &dto)
 	if err != nil {
 		return nil, err
@@ -96,26 +96,26 @@ func (service *AccessTokenService) FindById(
 
 func (service *AccessTokenService) FindByAuthID(
 	ctx context.Context,
-	id internal.AuthID,
-) ([]internal.AccessTokenID, error) {
+	id domain.AuthID,
+) ([]domain.AccessTokenID, error) {
 	key := service.buildAuthKey(id)
 	val, err := service.adaptor.HGetAll(ctx, key)
 	if err != nil {
 		return nil, err
 	}
-	response := make([]internal.AccessTokenID, 0)
+	response := make([]domain.AccessTokenID, 0)
 	if val == nil {
 		return response, nil
 	}
 	for tid := range val {
-		response = append(response, internal.AccessTokenID(tid))
+		response = append(response, domain.AccessTokenID(tid))
 	}
 	return response, nil
 }
 
 func (service *AccessTokenService) Delete(
 	ctx context.Context,
-	id internal.AccessTokenID,
+	id domain.AccessTokenID,
 ) (bool, error) {
 	key := service.buildKey(id)
 	val, err := service.adaptor.Delete(ctx, key)
@@ -130,7 +130,7 @@ func (service *AccessTokenService) Delete(
 
 func (service *AccessTokenService) MultiDelete(
 	ctx context.Context,
-	ids []internal.AccessTokenID,
+	ids []domain.AccessTokenID,
 ) (int64, error) {
 	keys := make([]string, len(ids))
 	for i, id := range ids {
