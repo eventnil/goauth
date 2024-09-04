@@ -107,7 +107,7 @@ func (service *AccessTokenService) FindByAuthID(
 	if val == nil {
 		return response, nil
 	}
-	for tid, _ := range val {
+	for tid := range val {
 		response = append(response, internal.AccessTokenID(tid))
 	}
 	return response, nil
