@@ -1,19 +1,19 @@
 package adaptors
 
 import (
-	"github.com/c0dev0yager/goauth"
+	"github.com/c0dev0yager/goauth/internal"
 )
 
 type RepositoryAdaptor struct {
-	tr *goauth.TokenRepository
+	tr *internal.TokenRepository
 }
 
 func NewRepositoryAdaptor(
-	tr *goauth.TokenRepository,
+	tr *internal.TokenRepository,
 ) *RepositoryAdaptor {
 	return &RepositoryAdaptor{tr: tr}
 }
 
-func (a *RepositoryAdaptor) Token() *goauth.TokenRepository {
+func (a *RepositoryAdaptor) Token() *internal.TokenRepository {
 	return a.tr
 }
