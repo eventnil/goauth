@@ -9,9 +9,8 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/sirupsen/logrus"
 
-	"github.com/c0dev0yager/goauth/pkg/domain"
-	"github.com/c0dev0yager/goauth/pkg/repository"
-	"github.com/c0dev0yager/goauth/pkg/tokens"
+	"github.com/c0dev0yager/goauth/internal"
+	"github.com/c0dev0yager/goauth/tokens"
 )
 
 type Config struct {
@@ -30,18 +29,18 @@ func NewSingletonClient(
 	cf Config,
 	rs *redis.Client,
 ) {
-	domain.NewLoggerClient(logrus.InfoLevel)
+	internal.NewLoggerClient(logrus.InfoLevel)
 
 	cl = &authClient{config: cf, redis: rs}
 
-	tr := &repository.TokenRepository{}
+	tr := &TokenRepository{}
 	tr.Build(rs)
 
 	tc := &tokens.TokenContainer{}
 	tc.Build(tr, cl.config.JwtKey)
 	cl.Tc = tc
 
-	domain.Logger().Info("GoAuth: ClientInitialised")
+	internal.Logger().Info("GoAuth: ClientInitialised")
 }
 
 func GetClient() *authClient {
@@ -51,18 +50,18 @@ func GetClient() *authClient {
 func getFromContext(
 	ctx context.Context,
 ) *logrus.Logger {
-	logger, ok := ctx.Value(domain.LoggerContextKey).(logrus.Logger)
+	logger, ok := ctx.Value(LoggerContextKey).(logrus.Logger)
 	if ok {
 		logger.WithField("event", "message")
 		return &logger
 	}
 
-	newLogger := domain.Logger()
+	newLogger := internal.Logger()
 	newLogger.WithField("event", "message")
 	return newLogger
 }
 
-func (cl *authClient) authenticate(
+func (cl *authClient) Authenticate(
 	next http.Handler,
 	roles string,
 ) http.HandlerFunc {
@@ -80,8 +79,8 @@ func (cl *authClient) authenticate(
 		)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			if errors.Is(err, domain.ErrAuthTokenExpired) || errors.Is(err, domain.ErrAuthTokenInvalid) || errors.Is(
-				err, domain.ErrAuthTokenMalformed,
+			if errors.Is(err, ErrAuthTokenExpired) || errors.Is(err, ErrAuthTokenInvalid) || errors.Is(
+				err, ErrAuthTokenMalformed,
 			) {
 				w.WriteHeader(http.StatusUnauthorized)
 				json.NewEncoder(w).Encode(err.Error())
@@ -98,20 +97,20 @@ func (cl *authClient) authenticate(
 			return
 		}
 
-		ctx = context.WithValue(ctx, domain.AuthIDKey, at.AuthID)
+		ctx = context.WithValue(ctx, AuthIDKey, at.AuthID)
 		r = r.WithContext(ctx)
 
-		ctx = context.WithValue(ctx, domain.AuthRoleKey, at.Role)
+		ctx = context.WithValue(ctx, AuthRoleKey, at.Role)
 		r = r.WithContext(ctx)
 
-		headerDTO := domain.GetHeaderDTO(ctx)
+		headerDTO := GetHeaderDTO(ctx)
 		headerDTO.AuthID = string(at.AuthID)
 
-		ctx = context.WithValue(ctx, domain.RequestHeaderContextKey, headerDTO)
+		ctx = context.WithValue(ctx, RequestHeaderContextKey, headerDTO)
 		r = r.WithContext(ctx)
 
 		logger.WithField("auth_id", headerDTO.AuthID)
-		ctx = context.WithValue(ctx, domain.LoggerContextKey, logger)
+		ctx = context.WithValue(ctx, LoggerContextKey, logger)
 		r = r.WithContext(ctx)
 		next.ServeHTTP(w, r)
 	}
@@ -123,7 +122,7 @@ func AuthenticateMiddleware(
 	topicName string,
 ) http.HandlerFunc {
 	next = recoverHandler(next)
-	next = cl.authenticate(next, roles)
+	next = cl.Authenticate(next, roles)
 	next = loggerMiddleware(next, topicName)
 	next = requestMetaMiddleware(next)
 	return next

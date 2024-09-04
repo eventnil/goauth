@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 
-	"github.com/c0dev0yager/goauth/pkg/domain"
+	"github.com/c0dev0yager/goauth/internal"
 )
 
 func recoverHandler(
@@ -22,7 +22,7 @@ func recoverHandler(
 	) {
 		defer func() {
 			if err := recover(); err != nil {
-				logger := domain.Logger()
+				logger := internal.Logger()
 				logger.Panic(err)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusInternalServerError)
@@ -41,9 +41,9 @@ func loggerMiddleware(
 		w http.ResponseWriter,
 		r *http.Request,
 	) {
-		logger := domain.Logger()
+		logger := internal.Logger()
 
-		dto := domain.GetHeaderDTO(r.Context())
+		dto := GetHeaderDTO(r.Context())
 		logFields := logrus.Fields{}
 		logFields["topic"] = topicName
 		logFields["tracking_id"] = dto.TrackingID
@@ -64,7 +64,7 @@ func loggerMiddleware(
 
 		contextData := context.WithValue(
 			r.Context(),
-			domain.LoggerContextKey,
+			LoggerContextKey,
 			logger,
 		)
 		r = r.WithContext(contextData)
@@ -79,7 +79,7 @@ func requestMetaMiddleware(
 		w http.ResponseWriter,
 		r *http.Request,
 	) {
-		dto := domain.RequestHeaderDTO{
+		dto := RequestHeaderDTO{
 			TrackingID: uuid.New().String(),
 			IPv4:       getIP(r),
 		}
@@ -99,8 +99,8 @@ func requestMetaMiddleware(
 			dto.AuthID = r.Header.Get("X-Auth-Id")
 		}
 
-		ctx := context.WithValue(r.Context(), domain.RequestHeaderContextKey, dto)
-		ctx = context.WithValue(ctx, domain.TrackingIDContextKey, dto.TrackingID)
+		ctx := context.WithValue(r.Context(), RequestHeaderContextKey, dto)
+		ctx = context.WithValue(ctx, TrackingIDContextKey, dto.TrackingID)
 		r = r.WithContext(ctx)
 
 		next.ServeHTTP(w, r)
@@ -121,13 +121,13 @@ func getAuthorizationRoleMap(
 func GetID(
 	ctx context.Context,
 ) string {
-	return ctx.Value(domain.AuthIDKey).(string)
+	return ctx.Value(AuthIDKey).(string)
 }
 
 func GetRole(
 	ctx context.Context,
 ) string {
-	role := ctx.Value(domain.AuthRoleKey).(string)
+	role := ctx.Value(AuthRoleKey).(string)
 	return role
 }
 
