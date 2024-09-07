@@ -1,35 +1,53 @@
 package domain
 
 import (
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
-type AccessTokenDTO struct {
-	ID             AccessTokenID  `json:"id"`
-	RefreshTokenID RefreshTokenID `json:"refresh_token_id"`
-	AuthID         AuthID         `json:"value"`
-	Role           string         `json:"role"`
-	Meta           interface{}    `json:"meta"`
-	ExpiresAt      int64          `json:"expires_at"`
-	CreatedAt      int64          `json:"created_at"`
+type TokenDTO struct {
+	ID            TokenID       `json:"id"`
+	RefreshID     RefreshID     `json:"refresh_id"`
+	AuthID        AuthID        `json:"auth_id"`
+	Role          string        `json:"role"`
+	ExpireMinutes time.Duration `json:"minutes"`
+	CreatedAt     int64         `json:"created_at"`
 }
 
-func (entity *AccessTokenDTO) AddID() error {
-	rid, err := uuid.NewUUID()
-	if err != nil {
-		return err
+func (entity *TokenDTO) AddID() error {
+	if entity.RefreshID == "" {
+		rid, err := uuid.NewUUID()
+		if err != nil {
+			return err
+		}
+		entity.RefreshID = RefreshID(rid.String())
 	}
-
-	entity.RefreshTokenID = RefreshTokenID(rid.String())
 
 	tid, err := uuid.NewUUID()
 	if err != nil {
 		return err
 	}
-	entity.ID = AccessTokenID(tid.String())
+	entity.ID = TokenID(tid.String())
+	return nil
+}
+
+func (entity *TokenDTO) FromRefreshToken(
+	decryptRefresh string,
+) error {
+	data := strings.Split(decryptRefresh, "::")
+	entity.RefreshID = RefreshID(data[1])
+	entity.AuthID = AuthID(data[5])
+	entity.Role = data[1]
+
+	tid, err := uuid.NewUUID()
+	if err != nil {
+		return err
+	}
+	entity.ID = TokenID(tid.String())
+	return nil
 }
 
 type AuthenticationDTO struct {
@@ -40,15 +58,15 @@ type AuthenticationDTO struct {
 }
 
 type RefreshTokenDTO struct {
-	ID        RefreshTokenID `json:"id"`
-	ExpiredAt int64          `json:"expired_at"`
-	AuthID    AuthID         `json:"auth_id"`
-	CreatedAt int64          `json:"created_at"`
+	ID        RefreshID `json:"id"`
+	ExpiredAt int64     `json:"expired_at"`
+	AuthID    AuthID    `json:"auth_id"`
+	CreatedAt int64     `json:"created_at"`
 }
 
 func (entity *RefreshTokenDTO) ToRefreshTokenDTO(
-	rid RefreshTokenID,
-	dto AccessTokenDTO,
+	rid RefreshID,
+	dto TokenDTO,
 ) {
 	entity.ID = rid
 	entity.AuthID = dto.AuthID
@@ -56,10 +74,10 @@ func (entity *RefreshTokenDTO) ToRefreshTokenDTO(
 	entity.CreatedAt = time.Now().UnixMilli()
 }
 
-type CreateTokenResponseDTO struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	ExpiresAt    int64  `json:"expires_at"`
+type AuthTokenDTO struct {
+	AccessToken  string
+	RefreshToken string
+	ExpiresAt    int64
 }
 
 type JWTPayload struct {
@@ -72,4 +90,11 @@ type JWTCustomClaims struct {
 	ID   string `json:"id"`
 	Role string `json:"role"`
 	jwt.RegisteredClaims
+}
+
+type TokenConfig struct {
+	JwtKey            []byte
+	EncKey            []byte
+	EncIV             []byte
+	JwtValidityInMins int
 }

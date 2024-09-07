@@ -9,26 +9,26 @@ import (
 type IAccessToken interface {
 	Add(
 		ctx context.Context,
-		dto *domain.AccessTokenDTO,
-	) (*domain.AccessTokenDTO, error)
+		dto *domain.TokenDTO,
+	) (*domain.TokenDTO, error)
 
 	FindById(
 		ctx context.Context,
-		id domain.AccessTokenID,
-	) (*domain.AccessTokenDTO, error)
+		id domain.TokenID,
+	) (*domain.TokenDTO, error)
 
 	FindByAuthID(
 		ctx context.Context,
 		id domain.AuthID,
-	) ([]domain.AccessTokenID, error)
+	) ([]domain.TokenID, error)
 
 	Delete(
 		ctx context.Context,
-		id domain.AccessTokenID,
+		id domain.TokenID,
 	) (bool, error)
 
 	MultiDelete(
 		ctx context.Context,
-		ids []domain.AccessTokenID,
+		ids []domain.TokenID,
 	) (int64, error)
 }

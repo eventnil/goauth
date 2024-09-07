@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/c0dev0yager/goauth/internal/domain"
 	"github.com/c0dev0yager/goauth/internal/repository/adaptors"
@@ -23,7 +22,7 @@ func NewAccessTokenService(
 }
 
 func (service *AccessTokenService) buildKey(
-	id domain.AccessTokenID,
+	id domain.TokenID,
 ) string {
 	return fmt.Sprintf("rat:%s", id)
 }
@@ -36,8 +35,8 @@ func (service *AccessTokenService) buildAuthKey(
 
 func (service *AccessTokenService) Add(
 	ctx context.Context,
-	dto *domain.AccessTokenDTO,
-) (*domain.AccessTokenDTO, error) {
+	dto *domain.TokenDTO,
+) (*domain.TokenDTO, error) {
 	err := dto.AddID()
 	if err != nil {
 		return nil, err
@@ -49,14 +48,15 @@ func (service *AccessTokenService) Add(
 		return nil, err
 	}
 
-	err = service.adaptor.Set(ctx, key, val, time.Hour*1)
+	err = service.adaptor.Set(ctx, key, val, dto.ExpireMinutes)
 	if err != nil {
 		return nil, err
 	}
 
 	authKey := service.buildAuthKey(dto.AuthID)
 	mapVal := map[string]string{
-		string(dto.ID): string(dto.RefreshTokenID),
+		"atid": string(dto.ID),
+		"rtid": string(dto.RefreshID),
 	}
 	err = service.adaptor.HSet(ctx, authKey, mapVal)
 	if err != nil {
@@ -68,15 +68,15 @@ func (service *AccessTokenService) Add(
 
 func (service *AccessTokenService) FindById(
 	ctx context.Context,
-	id domain.AccessTokenID,
-) (*domain.AccessTokenDTO, error) {
+	id domain.TokenID,
+) (*domain.TokenDTO, error) {
 	key := service.buildKey(id)
 	val, err := service.adaptor.Get(ctx, key)
 	if err != nil {
 		return nil, err
 	}
 
-	dto := domain.AccessTokenDTO{}
+	dto := domain.TokenDTO{}
 	err = json.Unmarshal(val, &dto)
 	if err != nil {
 		return nil, err
@@ -91,26 +91,27 @@ func (service *AccessTokenService) FindById(
 func (service *AccessTokenService) FindByAuthID(
 	ctx context.Context,
 	id domain.AuthID,
-) ([]domain.AccessTokenID, error) {
+) ([]domain.TokenID, error) {
 	key := service.buildAuthKey(id)
 	val, err := service.adaptor.HGetAll(ctx, key)
 	if err != nil {
 		return nil, err
 	}
 
-	response := make([]domain.AccessTokenID, 0)
+	response := make([]domain.TokenID, 0)
 	if val == nil {
 		return response, nil
 	}
-	for tid := range val {
-		response = append(response, domain.AccessTokenID(tid))
+	tid, ok := val["atid"]
+	if ok {
+		response = append(response, domain.TokenID(tid))
 	}
 	return response, nil
 }
 
 func (service *AccessTokenService) Delete(
 	ctx context.Context,
-	id domain.AccessTokenID,
+	id domain.TokenID,
 ) (bool, error) {
 	key := service.buildKey(id)
 	val, err := service.adaptor.Delete(ctx, key)
@@ -126,7 +127,7 @@ func (service *AccessTokenService) Delete(
 
 func (service *AccessTokenService) MultiDelete(
 	ctx context.Context,
-	ids []domain.AccessTokenID,
+	ids []domain.TokenID,
 ) (int64, error) {
 	keys := make([]string, len(ids))
 	for i, id := range ids {

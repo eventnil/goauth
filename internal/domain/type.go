@@ -1,5 +1,5 @@
 package domain
 
-type AccessTokenID string
-type RefreshTokenID string
+type TokenID string
+type RefreshID string
 type AuthID string

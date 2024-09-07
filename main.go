@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/sirupsen/logrus"
@@ -14,7 +15,10 @@ import (
 )
 
 type Config struct {
-	JwtKey string
+	JwtKey            string
+	JwtValidityInMins int
+	EncKey            string
+	EnvIV             string
 }
 
 type authClient struct {
@@ -30,9 +34,15 @@ func NewSingletonClient(
 ) {
 	domain.NewLoggerClient(logrus.InfoLevel)
 
+	tokenConfig := domain.TokenConfig{
+		JwtKey:            []byte(cf.JwtKey),
+		JwtValidityInMins: cf.JwtValidityInMins,
+		EncKey:            []byte(cf.EncKey),
+		EncIV:             []byte(cf.EnvIV),
+	}
 	cl = &authClient{
 		config: cf,
-		ts:     internal.NewTokenService(rs, cf.JwtKey),
+		ts:     internal.NewTokenService(rs, tokenConfig),
 	}
 
 	domain.Logger().Info("GoAuth: ClientInitialised")
@@ -116,7 +126,24 @@ func (cl *authClient) CreateToken(
 	dto CreateToken,
 ) (*TokenResponseDTO, error) {
 	accessTokenDTO := dto.ToCreateAccessToken()
+	accessTokenDTO.ExpireMinutes = time.Duration(cl.config.JwtValidityInMins) * time.Minute
+	tokenResponse, err := cl.ts.Create(ctx, accessTokenDTO)
+	if err != nil {
+		return nil, err
+	}
+	res := TokenResponseDTO{
+		AccessToken:  JWTToken(tokenResponse.AccessToken),
+		RefreshToken: JWTToken(tokenResponse.RefreshToken),
+		ExpiresAt:    tokenResponse.ExpiresAt,
+	}
+	return &res, nil
+}
 
+func (cl *authClient) RefreshToken(
+	ctx context.Context,
+	accessToken string,
+	refreshToken string,
+) (*TokenResponseDTO, error) {
 	tokenResponse, err := cl.ts.Create(ctx, accessTokenDTO)
 	if err != nil {
 		return nil, err

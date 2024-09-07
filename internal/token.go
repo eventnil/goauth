@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -12,43 +13,89 @@ import (
 )
 
 type TokenService struct {
-	rep  *repository.TokenRepository
-	sign []byte
+	rep *repository.TokenRepository
+	cfg domain.TokenConfig
 }
 
 func NewTokenService(
 	redisClient *redis.Client,
-	jwtKey string,
+	tokenConfig domain.TokenConfig,
 ) *TokenService {
 	rep := &repository.TokenRepository{}
 	rep.Build(redisClient)
-	return &TokenService{rep: rep, sign: []byte(jwtKey)}
+	return &TokenService{rep: rep, cfg: tokenConfig}
 }
 
 func (s *TokenService) Create(
 	ctx context.Context,
-	createDTO domain.AccessTokenDTO,
-) (*domain.CreateTokenResponseDTO, error) {
+	createDTO domain.TokenDTO,
+) (*domain.AuthTokenDTO, error) {
 	dto, err := s.rep.IAccessToken.Add(
 		ctx,
-		createDTO,
+		&createDTO,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	jwtAccess, err := s.createAccessToken(ctx, *dto)
+	accessToken, err := s.createAccessToken(ctx, *dto)
 	if err != nil {
 		return nil, err
 	}
-	jwtRefresh, err := s.createRefreshToken(ctx, *dto)
+
+	rtd := fmt.Sprintf("rt::%s::ro::%s::aid:%s", dto.RefreshID, dto.Role, dto.AuthID)
+	refreshToken, err := domain.Aes256Encode(rtd, s.cfg.EncKey, s.cfg.EncIV)
 	if err != nil {
 		return nil, err
 	}
-	res := domain.CreateTokenResponseDTO{
-		AccessToken:  jwtAccess,
-		RefreshToken: jwtRefresh,
-		ExpiresAt:    dto.ExpiresAt,
+
+	res := domain.AuthTokenDTO{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresAt:    dto.CreatedAt + int64(dto.ExpireMinutes)*60*1000,
+	}
+
+	return &res, nil
+}
+
+func (s *TokenService) Refresh(
+	ctx context.Context,
+	refreshToken string,
+	accessToken string,
+) (*domain.AuthTokenDTO, error) {
+	decryptRefresh, err := domain.Aes256Decode(refreshToken, s.cfg.EncKey, s.cfg.EncIV)
+	if err != nil {
+		return nil, err
+	}
+	newTokenDTO := &domain.TokenDTO{}
+	err = newTokenDTO.FromRefreshToken(decryptRefresh)
+	if err != nil {
+		return nil, err
+	}
+
+	dto, err := s.rep.IAccessToken.Add(
+		ctx,
+		newTokenDTO,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	accessToken, err = s.createAccessToken(ctx, *dto)
+	if err != nil {
+		return nil, err
+	}
+
+	rtd := fmt.Sprintf("rt::%s::ro::%s::aid::%s", dto.RefreshID, dto.Role, dto.AuthID)
+	refreshToken, err = domain.Aes256Encode(rtd, s.cfg.EncKey, s.cfg.EncIV)
+	if err != nil {
+		return nil, err
+	}
+
+	res := domain.AuthTokenDTO{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresAt:    dto.CreatedAt + int64(dto.ExpireMinutes)*60*1000,
 	}
 
 	return &res, nil
@@ -81,7 +128,7 @@ func (s *TokenService) Invalidate(
 func (s *TokenService) ValidateAccessToken(
 	ctx context.Context,
 	jwtToken string,
-) (*domain.AccessTokenDTO, error) {
+) (*domain.TokenDTO, error) {
 	claims, err := s.validateJWT(jwtToken)
 	if err != nil {
 		return nil, err
@@ -89,7 +136,7 @@ func (s *TokenService) ValidateAccessToken(
 
 	at, err := s.rep.IAccessToken.FindById(
 		ctx,
-		domain.AccessTokenID(claims.ID),
+		domain.TokenID(claims.ID),
 	)
 	if err != nil {
 		return nil, err
@@ -102,53 +149,29 @@ func (s *TokenService) ValidateAccessToken(
 
 func (s *TokenService) createAccessToken(
 	ctx context.Context,
-	tokenDTO domain.AccessTokenDTO,
+	tokenDTO domain.TokenDTO,
 ) (string, error) {
 	current := &jwt.NumericDate{Time: time.Now().UTC()}
+	expireAtMs := tokenDTO.CreatedAt + int64(tokenDTO.ExpireMinutes)*60*1000
 	claims := domain.JWTCustomClaims{
 		ID:   string(tokenDTO.ID),
 		Role: tokenDTO.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: &jwt.NumericDate{Time: time.UnixMilli(tokenDTO.ExpiresAt)},
+			ExpiresAt: &jwt.NumericDate{Time: time.UnixMilli(expireAtMs).UTC()},
 			IssuedAt:  current,
 			NotBefore: current,
-			Issuer:    "redis-auth",
+			Issuer:    "goauth",
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
 
-	accessToken, err := token.SignedString(s.sign)
+	accessToken, err := token.SignedString(s.cfg.JwtKey)
 	if err != nil {
 		return "", err
 	}
 
 	return accessToken, nil
-}
-
-func (s *TokenService) createRefreshToken(
-	ctx context.Context,
-	tokenDTO domain.AccessTokenDTO,
-) (string, error) {
-	current := &jwt.NumericDate{Time: time.Now().UTC()}
-	claims := domain.JWTCustomClaims{
-		ID:   string(tokenDTO.RefreshTokenID),
-		Role: "refresh",
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: &jwt.NumericDate{Time: time.UnixMilli(tokenDTO.ExpiresAt)},
-			IssuedAt:  current,
-			NotBefore: current,
-			Issuer:    "redis-auth",
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
-	refreshToken, err := token.SignedString(s.sign)
-	if err != nil {
-		return "", err
-	}
-
-	return refreshToken, nil
 }
 
 func (s *TokenService) validateJWT(

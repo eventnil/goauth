@@ -36,12 +36,10 @@ type CreateToken struct {
 	UniqueID string      `json:"unique_id,omitempty"`
 }
 
-func (e *CreateToken) ToCreateAccessToken() domain.AccessTokenDTO {
-	dto := domain.AccessTokenDTO{
+func (e *CreateToken) ToCreateAccessToken() domain.TokenDTO {
+	dto := domain.TokenDTO{
 		AuthID:    domain.AuthID(e.AuthID),
 		Role:      e.Role,
-		Meta:      e.Meta,
-		ExpiresAt: time.Now().UnixMilli(),
 		CreatedAt: time.Now().UnixMilli(),
 	}
 	return dto
