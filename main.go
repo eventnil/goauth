@@ -36,7 +36,7 @@ func NewSingletonClient(
 
 	tokenConfig := domain.TokenConfig{
 		JwtKey:            []byte(cf.JwtKey),
-		JwtValidityInMins: cf.JwtValidityInMins,
+		JwtValidityInMins: time.Duration(cf.JwtValidityInMins) * time.Minute,
 		EncKey:            []byte(cf.EncKey),
 		EncIV:             []byte(cf.EnvIV),
 	}
@@ -123,10 +123,9 @@ func (cl *authClient) Authenticate(
 
 func (cl *authClient) CreateToken(
 	ctx context.Context,
-	dto CreateToken,
+	dto TokenValue,
 ) (*TokenResponseDTO, error) {
-	accessTokenDTO := dto.ToCreateAccessToken()
-	accessTokenDTO.ExpireMinutes = time.Duration(cl.config.JwtValidityInMins) * time.Minute
+	accessTokenDTO := dto.ToInternalToken()
 	tokenResponse, err := cl.ts.Create(
 		ctx, accessTokenDTO,
 	)
@@ -144,10 +143,10 @@ func (cl *authClient) CreateToken(
 func (cl *authClient) RefreshToken(
 	ctx context.Context,
 	refreshKey string,
-	accessToken string,
+	accessToken JWTToken,
 ) (*TokenResponseDTO, error) {
 	tokenResponse, err := cl.ts.Refresh(
-		ctx, refreshKey, accessToken,
+		ctx, refreshKey, string(accessToken),
 	)
 	if err != nil {
 		return nil, err
@@ -158,4 +157,31 @@ func (cl *authClient) RefreshToken(
 		ExpiresAt:   tokenResponse.ExpiresAt,
 	}
 	return &res, nil
+}
+
+func (cl *authClient) Validate(
+	ctx context.Context,
+	accessToken JWTToken,
+) (*TokenValue, error) {
+	tokenDTO, err := cl.ts.ValidateAccessToken(
+		ctx, string(accessToken),
+	)
+	if err != nil {
+		return nil, err
+	}
+	response := TokenValue{
+		AuthID: string(tokenDTO.AuthID),
+		Role:   tokenDTO.Role,
+	}
+	return &response, nil
+}
+
+func (cl *authClient) InvalidateAll(
+	ctx context.Context,
+	authID string,
+) error {
+	err := cl.ts.InvalidateAll(
+		ctx, domain.AuthID(authID),
+	)
+	return err
 }

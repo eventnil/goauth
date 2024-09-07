@@ -2,6 +2,7 @@ package goauth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
@@ -12,9 +13,10 @@ import (
 )
 
 var (
-	ErrAuthTokenInvalid   = errors.New("AuthTokenInvalid")
-	ErrAuthTokenMalformed = errors.New("AuthTokenInvalid")
-	ErrAuthTokenExpired   = errors.New("AuthTokenExpired")
+	ErrAuthTokenInvalid      = errors.New("AuthTokenInvalid")
+	ErrAuthTokenMalformed    = errors.New("AuthTokenMalformed")
+	ErrAuthTokenExpired      = errors.New("AuthTokenExpired")
+	ErrAuthRefreshKeyInvalid = errors.New("AuthRefreshKeyInvalid")
 )
 
 type contextKey string
@@ -29,19 +31,19 @@ const (
 
 type JWTToken string
 
-type CreateToken struct {
-	AuthID   string      `json:"auth_id"`
-	Role     string      `json:"role"`
-	Meta     interface{} `json:"meta"`
-	UniqueID string      `json:"unique_id,omitempty"`
+type TokenValue struct {
+	AuthID string `json:"auth_id"`
+	Role   string `json:"role"`
 }
 
-func (e *CreateToken) ToCreateAccessToken() domain.TokenDTO {
+func (e *TokenValue) ToInternalToken() domain.TokenDTO {
 	dto := domain.TokenDTO{
 		AuthID:    domain.AuthID(e.AuthID),
 		Role:      e.Role,
-		CreatedAt: time.Now().UnixMilli(),
+		CreatedAt: time.Now().UTC(),
+		ExpiresAt: time.Now().UTC().Add(time.Duration(cl.config.JwtValidityInMins) * time.Minute),
 	}
+
 	return dto
 }
 
@@ -117,4 +119,14 @@ func getIP(r *http.Request) string {
 		return ip
 	}
 	return ""
+}
+
+func MapToString(
+	mapData interface{},
+) string {
+	data, err := json.Marshal(mapData)
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }

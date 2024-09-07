@@ -1,53 +1,26 @@
 package domain
 
 import (
-	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 )
 
 type TokenDTO struct {
-	ID            TokenID       `json:"id"`
-	RefreshID     RefreshID     `json:"refresh_id"`
-	AuthID        AuthID        `json:"auth_id"`
-	Role          string        `json:"role"`
-	ExpireMinutes time.Duration `json:"minutes"`
-	CreatedAt     int64         `json:"created_at"`
+	ID        TokenID   `json:"id"`
+	AuthID    AuthID    `json:"auth_id"`
+	Role      string    `json:"role"`
+	UniqueKey string    `json:"unique_key"`
+	ExpiresAt time.Time `json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
-func (entity *TokenDTO) AddID() error {
-	if entity.RefreshID == "" {
-		rid, err := uuid.NewUUID()
-		if err != nil {
-			return err
-		}
-		entity.RefreshID = RefreshID(rid.String())
-	}
-
-	tid, err := uuid.NewUUID()
-	if err != nil {
-		return err
-	}
-	entity.ID = TokenID(tid.String())
-	return nil
-}
-
-func (entity *TokenDTO) FromRefreshToken(
-	decryptRefresh string,
-) error {
-	data := strings.Split(decryptRefresh, "::")
-	entity.RefreshID = RefreshID(data[1])
-	entity.AuthID = AuthID(data[5])
-	entity.Role = data[1]
-
-	tid, err := uuid.NewUUID()
-	if err != nil {
-		return err
-	}
-	entity.ID = TokenID(tid.String())
-	return nil
+func (entity *TokenDTO) Refresh(
+	validityInMinutes time.Duration,
+) {
+	entity.ID = ""
+	entity.ExpiresAt = time.Now().UTC().Add(validityInMinutes)
+	entity.CreatedAt = time.Now().UTC()
 }
 
 type AuthenticationDTO struct {
@@ -88,7 +61,6 @@ type JWTPayload struct {
 
 type JWTCustomClaims struct {
 	ID   string `json:"id"`
-	RID  string `json:"rid"`
 	Role string `json:"role"`
 	jwt.RegisteredClaims
 }
@@ -97,5 +69,5 @@ type TokenConfig struct {
 	JwtKey            []byte
 	EncKey            []byte
 	EncIV             []byte
-	JwtValidityInMins int
+	JwtValidityInMins time.Duration
 }

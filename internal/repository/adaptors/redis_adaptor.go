@@ -181,15 +181,15 @@ func (adaptor *RedisAdaptor) HGetAll(
 func (adaptor *RedisAdaptor) HDelete(
 	ctx context.Context,
 	hashKey string,
-	field string,
-) error {
+	field []string,
+) (int64, error) {
 	redisKey := buildKey(hashKey)
-	_, err := adaptor.redisClient.HDel(ctx, redisKey, field).Result()
+	count, err := adaptor.redisClient.HDel(ctx, redisKey, field...).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
-			return nil
+			return 0, nil
 		}
-		return err
+		return 0, err
 	}
-	return nil
+	return count, nil
 }

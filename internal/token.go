@@ -2,7 +2,9 @@ package internal
 
 import (
 	"context"
+	b64 "encoding/base64"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -30,6 +32,12 @@ func (s *TokenService) Create(
 	ctx context.Context,
 	createDTO domain.TokenDTO,
 ) (*domain.AuthTokenDTO, error) {
+	createDTO.UniqueKey = "default"
+	refreshKeyVal := fmt.Sprintf("aid::%s::ro::%s:uk:", createDTO.AuthID, createDTO.Role, createDTO.UniqueKey)
+	rid, err := domain.Aes256Encode(refreshKeyVal, s.cfg.EncKey, s.cfg.EncIV)
+	if err != nil {
+		return nil, err
+	}
 	dto, err := s.rep.IAccessToken.Add(
 		ctx,
 		&createDTO,
@@ -43,16 +51,10 @@ func (s *TokenService) Create(
 		return nil, err
 	}
 
-	rtd := fmt.Sprintf("rt::%s::ro::%s::aid:%s", dto.RefreshID, dto.Role, dto.AuthID)
-	refreshToken, err := domain.Aes256Encode(rtd, s.cfg.EncKey, s.cfg.EncIV)
-	if err != nil {
-		return nil, err
-	}
-
 	res := domain.AuthTokenDTO{
 		AccessToken: accessToken,
-		RefreshKey:  refreshToken,
-		ExpiresAt:   dto.CreatedAt + int64(dto.ExpireMinutes)*60*1000,
+		RefreshKey:  b64.StdEncoding.EncodeToString([]byte(rid)),
+		ExpiresAt:   dto.ExpiresAt.UnixMilli(),
 	}
 
 	return &res, nil
@@ -63,75 +65,82 @@ func (s *TokenService) Refresh(
 	refreshKey string,
 	accessToken string,
 ) (*domain.AuthTokenDTO, error) {
-	decryptRefresh, err := domain.Aes256Decode(refreshKey, s.cfg.EncKey, s.cfg.EncIV)
+	claim, err := s.decodeAndVerifyJWT(accessToken)
 	if err != nil {
 		return nil, err
 	}
-
-	claim, err := s.decodeJWT(accessToken)
+	encodedKey, err := b64.StdEncoding.DecodeString(refreshKey)
 	if err != nil {
 		return nil, err
 	}
-
-	newTokenDTO := &domain.TokenDTO{}
-	err = newTokenDTO.FromRefreshToken(decryptRefresh)
+	decryptRefresh, err := domain.Aes256Decode(string(encodedKey), s.cfg.EncKey, s.cfg.EncIV)
 	if err != nil {
 		return nil, err
 	}
-	newTokenDTO.ExpireMinutes = time.Duration(s.cfg.JwtValidityInMins) * time.Minute
+	refreshVal := strings.Split(decryptRefresh, "::")
+	authID := domain.AuthID(refreshVal[1])
+	uniqueKey := refreshVal[5]
 
-	if domain.RefreshID(claim.RID) != newTokenDTO.RefreshID {
+	tokenDTO, err := s.rep.IAccessToken.GetByAuthID(
+		ctx,
+		authID,
+		uniqueKey,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if tokenDTO == nil || string(tokenDTO.ID) != claim.ID {
 		return nil, jwt.ErrTokenInvalidId
 	}
 
-	dto, err := s.rep.IAccessToken.Add(
+	tokenDTO.Refresh(s.cfg.JwtValidityInMins)
+	tokenDTO, err = s.rep.IAccessToken.Add(
 		ctx,
-		newTokenDTO,
+		tokenDTO,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	accessToken, err = s.createJWTToken(ctx, *dto)
-	if err != nil {
-		return nil, err
-	}
-
-	rtd := fmt.Sprintf("rt::%s::ro::%s::aid::%s", dto.RefreshID, dto.Role, dto.AuthID)
-	refreshToken, err = domain.Aes256Encode(rtd, s.cfg.EncKey, s.cfg.EncIV)
+	accessToken, err = s.createJWTToken(ctx, *tokenDTO)
 	if err != nil {
 		return nil, err
 	}
 
 	res := domain.AuthTokenDTO{
 		AccessToken: accessToken,
-		RefreshKey:  refreshToken,
-		ExpiresAt:   dto.CreatedAt + int64(dto.ExpireMinutes)*60*1000,
+		RefreshKey:  b64.StdEncoding.EncodeToString(encodedKey),
+		ExpiresAt:   tokenDTO.ExpiresAt.UnixMilli(),
 	}
 
 	return &res, nil
 }
 
-func (s *TokenService) Invalidate(
+func (s *TokenService) InvalidateAll(
 	ctx context.Context,
 	authID domain.AuthID,
 ) error {
-	ids, err := s.rep.IAccessToken.FindByAuthID(
+	tokenDTOS, err := s.rep.IAccessToken.FindByAuthID(
 		ctx,
 		authID,
 	)
 	if err != nil {
 		return err
 	}
-	if len(ids) == 0 {
+	if len(tokenDTOS) == 0 {
 		return nil
 	}
-	_, err = s.rep.IAccessToken.MultiDelete(
-		ctx,
-		ids,
-	)
+	ids := make([]domain.TokenID, len(tokenDTOS))
+	for i, tokenDTO := range tokenDTOS {
+		ids[i] = tokenDTO.ID
+	}
+	_, err = s.rep.IAccessToken.DeleteAuth(ctx, authID)
 	if err != nil {
 		return err
+	}
+	_, err = s.rep.IAccessToken.MultiDelete(ctx, ids)
+	if err != nil {
+		return nil
 	}
 	return nil
 }
@@ -140,24 +149,19 @@ func (s *TokenService) ValidateAccessToken(
 	ctx context.Context,
 	jwtToken string,
 ) (*domain.TokenDTO, error) {
-	claims, err := s.decodeJWT(jwtToken)
+	claims, err := s.decodeWithClaims(jwtToken)
 	if err != nil {
 		return nil, err
 	}
 
-	at, err := s.rep.IAccessToken.FindById(
-		ctx,
-		domain.TokenID(claims.ID),
-	)
+	at, err := s.rep.IAccessToken.GetById(ctx, domain.TokenID(claims.ID))
 	if err != nil {
 		return nil, err
 	}
 	if at == nil {
 		return nil, jwt.ErrTokenExpired
 	}
-	if at.RefreshID != domain.RefreshID(claims.RID) {
-		return nil, jwt.ErrTokenInvalidId
-	}
+
 	return at, nil
 }
 
@@ -166,20 +170,18 @@ func (s *TokenService) createJWTToken(
 	tokenDTO domain.TokenDTO,
 ) (string, error) {
 	current := &jwt.NumericDate{Time: time.Now().UTC()}
-	expireAtMs := tokenDTO.CreatedAt + int64(tokenDTO.ExpireMinutes)*60*1000
 	claims := domain.JWTCustomClaims{
 		ID:   string(tokenDTO.ID),
-		RID:  string(tokenDTO.RefreshID),
 		Role: tokenDTO.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: &jwt.NumericDate{Time: time.UnixMilli(expireAtMs).UTC()},
+			ExpiresAt: &jwt.NumericDate{Time: tokenDTO.ExpiresAt},
 			IssuedAt:  current,
 			NotBefore: current,
 			Issuer:    "goauth",
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	accessToken, err := token.SignedString(s.cfg.JwtKey)
 	if err != nil {
@@ -189,13 +191,12 @@ func (s *TokenService) createJWTToken(
 	return accessToken, nil
 }
 
-func (s *TokenService) decodeJWT(
+func (s *TokenService) decodeWithClaims(
 	tokenString string,
 ) (*domain.JWTCustomClaims, error) {
-	var jwtSignatureKey []byte
 	token, err := jwt.ParseWithClaims(
 		tokenString, &domain.JWTCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-			return jwtSignatureKey, nil
+			return s.cfg.JwtKey, nil
 		},
 	)
 	if err != nil {
@@ -218,4 +219,31 @@ func (s *TokenService) decodeJWT(
 	// 	return nil, domain2.ErrAuthTokenMalformed
 	// }
 	// return claims, nil
+}
+
+func (s *TokenService) decodeAndVerifyJWT(
+	tokenString string,
+) (*domain.JWTCustomClaims, error) {
+	token, err := jwt.Parse(
+		tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return s.cfg.JwtKey, nil
+		}, jwt.WithoutClaimsValidation(),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	mapClaims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, jwt.ErrTokenMalformed
+	}
+	claims := domain.JWTCustomClaims{
+		ID:   mapClaims["id"].(string),
+		Role: mapClaims["role"].(string),
+	}
+	return &claims, nil
 }
