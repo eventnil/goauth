@@ -127,31 +127,35 @@ func (cl *authClient) CreateToken(
 ) (*TokenResponseDTO, error) {
 	accessTokenDTO := dto.ToCreateAccessToken()
 	accessTokenDTO.ExpireMinutes = time.Duration(cl.config.JwtValidityInMins) * time.Minute
-	tokenResponse, err := cl.ts.Create(ctx, accessTokenDTO)
+	tokenResponse, err := cl.ts.Create(
+		ctx, accessTokenDTO,
+	)
 	if err != nil {
 		return nil, err
 	}
 	res := TokenResponseDTO{
-		AccessToken:  JWTToken(tokenResponse.AccessToken),
-		RefreshToken: JWTToken(tokenResponse.RefreshToken),
-		ExpiresAt:    tokenResponse.ExpiresAt,
+		AccessToken: JWTToken(tokenResponse.AccessToken),
+		RefreshKey:  tokenResponse.RefreshKey,
+		ExpiresAt:   tokenResponse.ExpiresAt,
 	}
 	return &res, nil
 }
 
 func (cl *authClient) RefreshToken(
 	ctx context.Context,
+	refreshKey string,
 	accessToken string,
-	refreshToken string,
 ) (*TokenResponseDTO, error) {
-	tokenResponse, err := cl.ts.Create(ctx, accessTokenDTO)
+	tokenResponse, err := cl.ts.Refresh(
+		ctx, refreshKey, accessToken,
+	)
 	if err != nil {
 		return nil, err
 	}
 	res := TokenResponseDTO{
-		AccessToken:  JWTToken(tokenResponse.AccessToken),
-		RefreshToken: JWTToken(tokenResponse.RefreshToken),
-		ExpiresAt:    tokenResponse.ExpiresAt,
+		AccessToken: JWTToken(tokenResponse.AccessToken),
+		RefreshKey:  tokenResponse.RefreshKey,
+		ExpiresAt:   tokenResponse.ExpiresAt,
 	}
 	return &res, nil
 }

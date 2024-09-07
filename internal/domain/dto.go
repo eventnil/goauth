@@ -75,9 +75,9 @@ func (entity *RefreshTokenDTO) ToRefreshTokenDTO(
 }
 
 type AuthTokenDTO struct {
-	AccessToken  string
-	RefreshToken string
-	ExpiresAt    int64
+	AccessToken string
+	RefreshKey  string
+	ExpiresAt   int64
 }
 
 type JWTPayload struct {
@@ -88,6 +88,7 @@ type JWTPayload struct {
 
 type JWTCustomClaims struct {
 	ID   string `json:"id"`
+	RID  string `json:"rid"`
 	Role string `json:"role"`
 	jwt.RegisteredClaims
 }

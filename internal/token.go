@@ -38,7 +38,7 @@ func (s *TokenService) Create(
 		return nil, err
 	}
 
-	accessToken, err := s.createAccessToken(ctx, *dto)
+	accessToken, err := s.createJWTToken(ctx, *dto)
 	if err != nil {
 		return nil, err
 	}
@@ -50,9 +50,9 @@ func (s *TokenService) Create(
 	}
 
 	res := domain.AuthTokenDTO{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		ExpiresAt:    dto.CreatedAt + int64(dto.ExpireMinutes)*60*1000,
+		AccessToken: accessToken,
+		RefreshKey:  refreshToken,
+		ExpiresAt:   dto.CreatedAt + int64(dto.ExpireMinutes)*60*1000,
 	}
 
 	return &res, nil
@@ -60,17 +60,28 @@ func (s *TokenService) Create(
 
 func (s *TokenService) Refresh(
 	ctx context.Context,
-	refreshToken string,
+	refreshKey string,
 	accessToken string,
 ) (*domain.AuthTokenDTO, error) {
-	decryptRefresh, err := domain.Aes256Decode(refreshToken, s.cfg.EncKey, s.cfg.EncIV)
+	decryptRefresh, err := domain.Aes256Decode(refreshKey, s.cfg.EncKey, s.cfg.EncIV)
 	if err != nil {
 		return nil, err
 	}
+
+	claim, err := s.decodeJWT(accessToken)
+	if err != nil {
+		return nil, err
+	}
+
 	newTokenDTO := &domain.TokenDTO{}
 	err = newTokenDTO.FromRefreshToken(decryptRefresh)
 	if err != nil {
 		return nil, err
+	}
+	newTokenDTO.ExpireMinutes = time.Duration(s.cfg.JwtValidityInMins) * time.Minute
+
+	if domain.RefreshID(claim.RID) != newTokenDTO.RefreshID {
+		return nil, jwt.ErrTokenInvalidId
 	}
 
 	dto, err := s.rep.IAccessToken.Add(
@@ -81,7 +92,7 @@ func (s *TokenService) Refresh(
 		return nil, err
 	}
 
-	accessToken, err = s.createAccessToken(ctx, *dto)
+	accessToken, err = s.createJWTToken(ctx, *dto)
 	if err != nil {
 		return nil, err
 	}
@@ -93,9 +104,9 @@ func (s *TokenService) Refresh(
 	}
 
 	res := domain.AuthTokenDTO{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		ExpiresAt:    dto.CreatedAt + int64(dto.ExpireMinutes)*60*1000,
+		AccessToken: accessToken,
+		RefreshKey:  refreshToken,
+		ExpiresAt:   dto.CreatedAt + int64(dto.ExpireMinutes)*60*1000,
 	}
 
 	return &res, nil
@@ -129,7 +140,7 @@ func (s *TokenService) ValidateAccessToken(
 	ctx context.Context,
 	jwtToken string,
 ) (*domain.TokenDTO, error) {
-	claims, err := s.validateJWT(jwtToken)
+	claims, err := s.decodeJWT(jwtToken)
 	if err != nil {
 		return nil, err
 	}
@@ -144,10 +155,13 @@ func (s *TokenService) ValidateAccessToken(
 	if at == nil {
 		return nil, jwt.ErrTokenExpired
 	}
+	if at.RefreshID != domain.RefreshID(claims.RID) {
+		return nil, jwt.ErrTokenInvalidId
+	}
 	return at, nil
 }
 
-func (s *TokenService) createAccessToken(
+func (s *TokenService) createJWTToken(
 	ctx context.Context,
 	tokenDTO domain.TokenDTO,
 ) (string, error) {
@@ -155,6 +169,7 @@ func (s *TokenService) createAccessToken(
 	expireAtMs := tokenDTO.CreatedAt + int64(tokenDTO.ExpireMinutes)*60*1000
 	claims := domain.JWTCustomClaims{
 		ID:   string(tokenDTO.ID),
+		RID:  string(tokenDTO.RefreshID),
 		Role: tokenDTO.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: &jwt.NumericDate{Time: time.UnixMilli(expireAtMs).UTC()},
@@ -174,7 +189,7 @@ func (s *TokenService) createAccessToken(
 	return accessToken, nil
 }
 
-func (s *TokenService) validateJWT(
+func (s *TokenService) decodeJWT(
 	tokenString string,
 ) (*domain.JWTCustomClaims, error) {
 	var jwtSignatureKey []byte

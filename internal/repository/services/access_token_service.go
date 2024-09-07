@@ -10,11 +10,11 @@ import (
 )
 
 type AccessTokenService struct {
-	adaptor *adaptor.RedisAdaptor
+	adaptor *adaptors.RedisAdaptor
 }
 
 func NewAccessTokenService(
-	adaptor *adaptor.RedisAdaptor,
+	adaptor *adaptors.RedisAdaptor,
 ) *AccessTokenService {
 	return &AccessTokenService{
 		adaptor: adaptor,

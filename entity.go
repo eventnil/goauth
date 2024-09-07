@@ -50,9 +50,9 @@ type InvalidateToken struct {
 }
 
 type TokenResponseDTO struct {
-	AccessToken  JWTToken `json:"access_token"`
-	RefreshToken JWTToken `json:"refresh_token"`
-	ExpiresAt    int64    `json:"expires_at"`
+	AccessToken JWTToken `json:"access_token"`
+	RefreshKey  string   `json:"refresh_key"`
+	ExpiresAt   int64    `json:"expires_at"`
 }
 
 type RequestHeaderDTO struct {
