@@ -1,4 +1,4 @@
-package ports
+package repository
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"github.com/c0dev0yager/goauth/internal/domain"
 )
 
-type IAccessToken interface {
+type IToken interface {
 	Add(
 		ctx context.Context,
 		dto *domain.TokenDTO,

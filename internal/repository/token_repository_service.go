@@ -1,4 +1,4 @@
-package services
+package repository
 
 import (
 	"context"
@@ -9,34 +9,33 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/c0dev0yager/goauth/internal/domain"
-	"github.com/c0dev0yager/goauth/internal/repository/adaptors"
 )
 
-type AccessTokenService struct {
-	adaptor *adaptors.RedisAdaptor
+type TokenService struct {
+	adaptor *RedisAdaptor
 }
 
-func NewAccessTokenService(
-	adaptor *adaptors.RedisAdaptor,
-) *AccessTokenService {
-	return &AccessTokenService{
+func NewTokenService(
+	adaptor *RedisAdaptor,
+) *TokenService {
+	return &TokenService{
 		adaptor: adaptor,
 	}
 }
 
-func (service *AccessTokenService) buildKey(
+func (service *TokenService) buildKey(
 	id domain.TokenID,
 ) string {
 	return fmt.Sprintf("ati:%s", id)
 }
 
-func (service *AccessTokenService) buildAuthKey(
+func (service *TokenService) buildAuthKey(
 	id domain.AuthID,
 ) string {
 	return fmt.Sprintf("aui:%s", id)
 }
 
-func (service *AccessTokenService) Add(
+func (service *TokenService) Add(
 	ctx context.Context,
 	dto *domain.TokenDTO,
 ) (*domain.TokenDTO, error) {
@@ -72,7 +71,7 @@ func (service *AccessTokenService) Add(
 	return dto, nil
 }
 
-func (service *AccessTokenService) GetById(
+func (service *TokenService) GetById(
 	ctx context.Context,
 	id domain.TokenID,
 ) (*domain.TokenDTO, error) {
@@ -94,7 +93,7 @@ func (service *AccessTokenService) GetById(
 	return &dto, nil
 }
 
-func (service *AccessTokenService) GetByAuthID(
+func (service *TokenService) GetByAuthID(
 	ctx context.Context,
 	id domain.AuthID,
 	field string,
@@ -116,7 +115,7 @@ func (service *AccessTokenService) GetByAuthID(
 	return &dto, nil
 }
 
-func (service *AccessTokenService) FindByAuthID(
+func (service *TokenService) FindByAuthID(
 	ctx context.Context,
 	id domain.AuthID,
 ) ([]domain.TokenDTO, error) {
@@ -142,7 +141,7 @@ func (service *AccessTokenService) FindByAuthID(
 	return response, nil
 }
 
-func (service *AccessTokenService) Delete(
+func (service *TokenService) Delete(
 	ctx context.Context,
 	id domain.TokenID,
 ) (bool, error) {
@@ -158,7 +157,7 @@ func (service *AccessTokenService) Delete(
 	return true, nil
 }
 
-func (service *AccessTokenService) DeleteAuth(
+func (service *TokenService) DeleteAuth(
 	ctx context.Context,
 	id domain.AuthID,
 ) (bool, error) {
@@ -174,7 +173,7 @@ func (service *AccessTokenService) DeleteAuth(
 	return true, nil
 }
 
-func (service *AccessTokenService) MultiDelete(
+func (service *TokenService) MultiDelete(
 	ctx context.Context,
 	ids []domain.TokenID,
 ) (int64, error) {
@@ -189,7 +188,7 @@ func (service *AccessTokenService) MultiDelete(
 	return val, nil
 }
 
-func (service *AccessTokenService) DeleteAuthFields(
+func (service *TokenService) DeleteAuthFields(
 	ctx context.Context,
 	authId domain.AuthID,
 	fields []string,

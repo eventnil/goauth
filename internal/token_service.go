@@ -40,7 +40,7 @@ func (s *TokenService) Create(
 	if err != nil {
 		return nil, err
 	}
-	dto, err := s.rep.IAccessToken.Add(
+	dto, err := s.rep.IToken.Add(
 		ctx,
 		&createDTO,
 	)
@@ -90,7 +90,7 @@ func (s *TokenService) Refresh(
 	authID := domain.AuthID(refreshVal[1])
 	uniqueKey := refreshVal[5]
 
-	tokenDTO, err := s.rep.IAccessToken.GetByAuthID(ctx, authID, uniqueKey)
+	tokenDTO, err := s.rep.IToken.GetByAuthID(ctx, authID, uniqueKey)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func (s *TokenService) Refresh(
 	}
 
 	tokenDTO.Refresh(s.cfg.JwtValidityInMins)
-	tokenDTO, err = s.rep.IAccessToken.Add(ctx, tokenDTO)
+	tokenDTO, err = s.rep.IToken.Add(ctx, tokenDTO)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func (s *TokenService) InvalidateAll(
 	ctx context.Context,
 	authID domain.AuthID,
 ) error {
-	tokenDTOS, err := s.rep.IAccessToken.FindByAuthID(
+	tokenDTOS, err := s.rep.IToken.FindByAuthID(
 		ctx,
 		authID,
 	)
@@ -136,11 +136,11 @@ func (s *TokenService) InvalidateAll(
 	for i, tokenDTO := range tokenDTOS {
 		ids[i] = tokenDTO.ID
 	}
-	_, err = s.rep.IAccessToken.DeleteAuth(ctx, authID)
+	_, err = s.rep.IToken.DeleteAuth(ctx, authID)
 	if err != nil {
 		return err
 	}
-	_, err = s.rep.IAccessToken.MultiDelete(ctx, ids)
+	_, err = s.rep.IToken.MultiDelete(ctx, ids)
 	if err != nil {
 		return nil
 	}
@@ -162,7 +162,7 @@ func (s *TokenService) ValidateAccessToken(
 		return nil, err
 	}
 
-	at, err := s.rep.IAccessToken.GetById(ctx, domain.TokenID(claims.ID))
+	at, err := s.rep.IToken.GetById(ctx, domain.TokenID(claims.ID))
 	if err != nil {
 		return nil, err
 	}

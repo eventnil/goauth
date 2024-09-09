@@ -1,4 +1,4 @@
-package adaptors
+package repository
 
 import (
 	"context"

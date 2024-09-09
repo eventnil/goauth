@@ -12,6 +12,7 @@ import (
 
 	"github.com/c0dev0yager/goauth/internal"
 	"github.com/c0dev0yager/goauth/internal/domain"
+	"github.com/c0dev0yager/goauth/pkg"
 )
 
 type Config struct {
@@ -84,8 +85,8 @@ func (cl *authClient) Authenticate(
 		)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			if errors.Is(err, ErrAuthTokenExpired) || errors.Is(err, ErrAuthTokenInvalid) || errors.Is(
-				err, ErrAuthTokenMalformed,
+			if errors.Is(err, pkg.ErrAuthTokenExpired) || errors.Is(err, pkg.ErrAuthTokenInvalid) || errors.Is(
+				err, pkg.ErrAuthTokenMalformed,
 			) {
 				w.WriteHeader(http.StatusUnauthorized)
 				json.NewEncoder(w).Encode(err.Error())
@@ -133,7 +134,7 @@ func (cl *authClient) CreateToken(
 		return nil, err
 	}
 	res := TokenResponseDTO{
-		AccessToken: JWTToken(tokenResponse.AccessToken),
+		AccessToken: pkg.JWTToken(tokenResponse.AccessToken),
 		RefreshKey:  tokenResponse.RefreshKey,
 		ExpiresAt:   tokenResponse.ExpiresAt,
 	}
@@ -143,7 +144,7 @@ func (cl *authClient) CreateToken(
 func (cl *authClient) RefreshToken(
 	ctx context.Context,
 	refreshKey string,
-	accessToken JWTToken,
+	accessToken pkg.JWTToken,
 ) (*TokenResponseDTO, error) {
 	tokenResponse, err := cl.ts.Refresh(
 		ctx, refreshKey, string(accessToken),
@@ -152,7 +153,7 @@ func (cl *authClient) RefreshToken(
 		return nil, err
 	}
 	res := TokenResponseDTO{
-		AccessToken: JWTToken(tokenResponse.AccessToken),
+		AccessToken: pkg.JWTToken(tokenResponse.AccessToken),
 		RefreshKey:  tokenResponse.RefreshKey,
 		ExpiresAt:   tokenResponse.ExpiresAt,
 	}
@@ -161,7 +162,7 @@ func (cl *authClient) RefreshToken(
 
 func (cl *authClient) Validate(
 	ctx context.Context,
-	accessToken JWTToken,
+	accessToken pkg.JWTToken,
 ) (*TokenValue, error) {
 	tokenDTO, err := cl.ts.ValidateAccessToken(
 		ctx, string(accessToken),
