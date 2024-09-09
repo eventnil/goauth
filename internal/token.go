@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	b64 "encoding/base64"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/c0dev0yager/goauth/internal/domain"
 	"github.com/c0dev0yager/goauth/internal/repository"
+	"github.com/c0dev0yager/goauth/pkg"
 )
 
 type TokenService struct {
@@ -67,11 +69,18 @@ func (s *TokenService) Refresh(
 ) (*domain.AuthTokenDTO, error) {
 	claim, err := s.decodeAndVerifyJWT(accessToken)
 	if err != nil {
+		if errors.Is(err, jwt.ErrTokenMalformed) {
+			return nil, pkg.ErrAuthTokenMalformed
+		}
+		if errors.Is(err, jwt.ErrTokenUnverifiable) {
+			return nil, pkg.ErrAuthTokenInvalid
+		}
 		return nil, err
 	}
+
 	encodedKey, err := b64.StdEncoding.DecodeString(refreshKey)
 	if err != nil {
-		return nil, err
+		return nil, pkg.ErrAuthTokenInvalid
 	}
 	decryptRefresh, err := domain.Aes256Decode(string(encodedKey), s.cfg.EncKey, s.cfg.EncIV)
 	if err != nil {
@@ -81,23 +90,16 @@ func (s *TokenService) Refresh(
 	authID := domain.AuthID(refreshVal[1])
 	uniqueKey := refreshVal[5]
 
-	tokenDTO, err := s.rep.IAccessToken.GetByAuthID(
-		ctx,
-		authID,
-		uniqueKey,
-	)
+	tokenDTO, err := s.rep.IAccessToken.GetByAuthID(ctx, authID, uniqueKey)
 	if err != nil {
 		return nil, err
 	}
 	if tokenDTO == nil || string(tokenDTO.ID) != claim.ID {
-		return nil, jwt.ErrTokenInvalidId
+		return nil, pkg.ErrAuthRefreshKeyInvalid
 	}
 
 	tokenDTO.Refresh(s.cfg.JwtValidityInMins)
-	tokenDTO, err = s.rep.IAccessToken.Add(
-		ctx,
-		tokenDTO,
-	)
+	tokenDTO, err = s.rep.IAccessToken.Add(ctx, tokenDTO)
 	if err != nil {
 		return nil, err
 	}
@@ -151,6 +153,12 @@ func (s *TokenService) ValidateAccessToken(
 ) (*domain.TokenDTO, error) {
 	claims, err := s.decodeWithClaims(jwtToken)
 	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return nil, pkg.ErrAuthTokenExpired
+		}
+		if errors.Is(err, jwt.ErrTokenMalformed) {
+			return nil, pkg.ErrAuthTokenInvalid
+		}
 		return nil, err
 	}
 
@@ -159,9 +167,8 @@ func (s *TokenService) ValidateAccessToken(
 		return nil, err
 	}
 	if at == nil {
-		return nil, jwt.ErrTokenExpired
+		return nil, pkg.ErrAuthTokenExpired
 	}
-
 	return at, nil
 }
 
@@ -207,18 +214,6 @@ func (s *TokenService) decodeWithClaims(
 		return nil, jwt.ErrTokenMalformed
 	}
 	return claims, nil
-
-	// if err != nil {
-	// 	if errors.Is(err, jwt.ErrTokenExpired) {
-	// 		return nil, internal.ErrAuthTokenExpired
-	// 	}
-	// 	return nil, domain2.ErrAuthTokenInvalid
-	// }
-	// claims, ok := token.Claims.(*JWTCustomClaims)
-	// if !ok {
-	// 	return nil, domain2.ErrAuthTokenMalformed
-	// }
-	// return claims, nil
 }
 
 func (s *TokenService) decodeAndVerifyJWT(
@@ -232,7 +227,6 @@ func (s *TokenService) decodeAndVerifyJWT(
 			return s.cfg.JwtKey, nil
 		}, jwt.WithoutClaimsValidation(),
 	)
-
 	if err != nil {
 		return nil, err
 	}

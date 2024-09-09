@@ -2,21 +2,13 @@ package goauth
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/c0dev0yager/goauth/internal/domain"
-)
-
-var (
-	ErrAuthTokenInvalid      = errors.New("AuthTokenInvalid")
-	ErrAuthTokenMalformed    = errors.New("AuthTokenMalformed")
-	ErrAuthTokenExpired      = errors.New("AuthTokenExpired")
-	ErrAuthRefreshKeyInvalid = errors.New("AuthRefreshKeyInvalid")
+	"github.com/c0dev0yager/goauth/pkg"
 )
 
 type contextKey string
@@ -28,8 +20,6 @@ const (
 	LoggerContextKey        contextKey = "httpLogger"
 	RequestHeaderContextKey contextKey = "requestHeader"
 )
-
-type JWTToken string
 
 type TokenValue struct {
 	AuthID string `json:"auth_id"`
@@ -52,9 +42,9 @@ type InvalidateToken struct {
 }
 
 type TokenResponseDTO struct {
-	AccessToken JWTToken `json:"access_token"`
-	RefreshKey  string   `json:"refresh_key"`
-	ExpiresAt   int64    `json:"expires_at"`
+	AccessToken pkg.JWTToken `json:"access_token"`
+	RefreshKey  string       `json:"refresh_key"`
+	ExpiresAt   int64        `json:"expires_at"`
 }
 
 type RequestHeaderDTO struct {
@@ -119,14 +109,4 @@ func getIP(r *http.Request) string {
 		return ip
 	}
 	return ""
-}
-
-func MapToString(
-	mapData interface{},
-) string {
-	data, err := json.Marshal(mapData)
-	if err != nil {
-		return ""
-	}
-	return string(data)
 }
