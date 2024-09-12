@@ -177,7 +177,7 @@ func (cl *authClient) Validate(
 	return &response, nil
 }
 
-func (cl *authClient) InvalidateAll(
+func (cl *authClient) Invalidate(
 	ctx context.Context,
 	authID string,
 ) error {
