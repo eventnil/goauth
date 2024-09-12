@@ -48,12 +48,12 @@ type TokenResponseDTO struct {
 }
 
 type RequestHeaderDTO struct {
-	AuthID     string
-	IPv4       string
-	DeviceID   string
-	Version    string
-	TrackingID string
-	ClientTime string
+	AuthID      string
+	IPv4        string
+	DeviceID    string
+	Version     string
+	TrackingID  string
+	RequestTime string
 }
 
 func GetHeaderDTO(

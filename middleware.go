@@ -46,8 +46,8 @@ func loggerMiddleware(
 		logFields := logrus.Fields{}
 		logFields["topic"] = topicName
 		logFields["tracking_id"] = dto.TrackingID
-		if dto.ClientTime != "" {
-			logFields["x_client_time"] = dto.ClientTime
+		if dto.RequestTime != "" {
+			logFields["x_request_time"] = dto.RequestTime
 		}
 		if dto.Version != "" {
 			logFields["x_version"] = dto.Version
@@ -85,8 +85,8 @@ func requestMetaMiddleware(
 		if r.Header.Get("X-Tracking-Id") != "" {
 			dto.TrackingID = r.Header.Get("X-Tracking-Id")
 		}
-		if r.Header.Get("X-Client-Time") != "" {
-			dto.ClientTime = r.Header.Get("X-Client-Time")
+		if r.Header.Get("X-Request-Time") != "" {
+			dto.RequestTime = r.Header.Get("X-Request-Time")
 		}
 		if r.Header.Get("X-Version") != "" {
 			dto.Version = r.Header.Get("X-Version")
