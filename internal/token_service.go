@@ -35,7 +35,7 @@ func (s *TokenService) Create(
 	createDTO domain.TokenDTO,
 ) (*domain.AuthTokenDTO, error) {
 	createDTO.UniqueKey = "default"
-	refreshKeyVal := fmt.Sprintf("aid::%s::ro::%s:uk:", createDTO.AuthID, createDTO.Role, createDTO.UniqueKey)
+	refreshKeyVal := fmt.Sprintf("aid::%s::ro::%s::uk::%s", createDTO.AuthID, createDTO.Role, createDTO.UniqueKey)
 	rid, err := domain.Aes256Encode(refreshKeyVal, s.cfg.EncKey, s.cfg.EncIV)
 	if err != nil {
 		return nil, err
@@ -87,6 +87,7 @@ func (s *TokenService) Refresh(
 		return nil, err
 	}
 	refreshVal := strings.Split(decryptRefresh, "::")
+
 	authID := domain.AuthID(refreshVal[1])
 	uniqueKey := refreshVal[5]
 
