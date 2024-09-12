@@ -81,6 +81,10 @@ func (service *TokenService) GetById(
 		return nil, err
 	}
 
+	if val == nil {
+		return nil, nil
+	}
+
 	dto := domain.TokenDTO{}
 	err = json.Unmarshal(val, &dto)
 	if err != nil {
@@ -103,7 +107,9 @@ func (service *TokenService) GetByAuthID(
 	if err != nil {
 		return nil, err
 	}
-
+	if val == nil {
+		return nil, nil
+	}
 	dto := domain.TokenDTO{}
 	err = json.Unmarshal(val, &dto)
 	if err != nil {
