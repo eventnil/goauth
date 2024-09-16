@@ -22,9 +22,9 @@ const (
 )
 
 type TokenValue struct {
-	AuthID   string `json:"auth_id" validate:"required"`
-	Role     string `json:"role" validate:"required"`
-	UniqueID string `json:"unique_id"`
+	AuthID   string `json:"auth_id" validate:"required,max=100,special_character_validation"`
+	Role     string `json:"role" validate:"required,max=20,special_character_validation"`
+	UniqueID string `json:"unique_id" validate:"max=100,special_character_validation"`
 }
 
 func (e *TokenValue) ToInternalToken() domain.TokenDTO {

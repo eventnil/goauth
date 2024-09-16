@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	ErrRequiredFieldMissing  = errors.New("RequiredFieldMissing")
+	ErrFieldValidation       = errors.New("ErrFieldValidation")
 	ErrAuthTokenInvalid      = errors.New("AuthTokenInvalid")
 	ErrAuthTokenMalformed    = errors.New("AuthTokenMalformed")
 	ErrAuthTokenExpired      = errors.New("AuthTokenExpired")

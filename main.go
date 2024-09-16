@@ -53,20 +53,6 @@ func GetClient() *authClient {
 	return cl
 }
 
-func GetFromContext(
-	ctx context.Context,
-) *logrus.Logger {
-	logger, ok := ctx.Value(LoggerContextKey).(logrus.Logger)
-	if ok {
-		logger.WithField("event", "message")
-		return &logger
-	}
-
-	newLogger := domain.Logger()
-	newLogger.WithField("event", "message")
-	return newLogger
-}
-
 func (cl *authClient) Authenticate(
 	next http.Handler,
 	roles string,
@@ -77,7 +63,7 @@ func (cl *authClient) Authenticate(
 	) {
 		ctx := r.Context()
 
-		logger := GetFromContext(ctx)
+		logger := pkg.GetFromContext(ctx)
 		tv := r.Header.Get("Authorization")
 		at, err := cl.ts.Validate(
 			ctx,
@@ -128,7 +114,8 @@ func (cl *authClient) CreateToken(
 ) (*TokenResponseDTO, error) {
 	err := pkg.Validate.Struct(dto)
 	if err != nil {
-		return nil, pkg.ErrRequiredFieldMissing
+		domain.Logger().Infof("%s: CreateToken Validation: %v", domain.LogKeyword, err)
+		return nil, pkg.ErrFieldValidation
 	}
 	accessTokenDTO := dto.ToInternalToken()
 	tokenResponse, err := cl.ts.Create(
@@ -151,7 +138,7 @@ func (cl *authClient) RefreshToken(
 	accessToken pkg.JWTToken,
 ) (*TokenResponseDTO, error) {
 	if refreshKey == "" || accessToken == "" {
-		return nil, pkg.ErrRequiredFieldMissing
+		return nil, pkg.ErrFieldValidation
 	}
 
 	tokenResponse, err := cl.ts.Refresh(
@@ -173,7 +160,7 @@ func (cl *authClient) Validate(
 	accessToken pkg.JWTToken,
 ) (*TokenValue, error) {
 	if accessToken == "" {
-		return nil, pkg.ErrRequiredFieldMissing
+		return nil, pkg.ErrFieldValidation
 	}
 	tokenDTO, err := cl.ts.Validate(
 		ctx, string(accessToken),
@@ -193,7 +180,7 @@ func (cl *authClient) Invalidate(
 	authID string,
 ) error {
 	if authID == "" {
-		return pkg.ErrRequiredFieldMissing
+		return pkg.ErrFieldValidation
 	}
 	err := cl.ts.Invalidate(
 		ctx, domain.AuthID(authID),
