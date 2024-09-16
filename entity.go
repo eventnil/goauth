@@ -22,16 +22,22 @@ const (
 )
 
 type TokenValue struct {
-	AuthID string `json:"auth_id"`
-	Role   string `json:"role"`
+	AuthID   string `json:"auth_id" validate:"required,max=100,special_character_validation"`
+	Role     string `json:"role" validate:"required,max=20,special_character_validation"`
+	UniqueID string `json:"unique_id" validate:"max=100,special_character_validation"`
 }
 
 func (e *TokenValue) ToInternalToken() domain.TokenDTO {
+	ts := time.Now().UTC()
 	dto := domain.TokenDTO{
 		AuthID:    domain.AuthID(e.AuthID),
 		Role:      e.Role,
-		CreatedAt: time.Now().UTC(),
-		ExpiresAt: time.Now().UTC().Add(time.Duration(cl.config.JwtValidityInMins) * time.Minute),
+		UniqueID:  "def",
+		CreatedAt: ts,
+		ExpiresAt: ts.Add(time.Duration(cl.config.JwtValidityInMins) * time.Minute),
+	}
+	if e.UniqueID != "" {
+		dto.UniqueID = e.UniqueID
 	}
 
 	return dto

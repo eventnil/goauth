@@ -7,10 +7,8 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/pkg/errors"
-)
 
-const (
-	goauthRedisKey = "goauth:%v"
+	"github.com/c0dev0yager/goauth/internal/domain"
 )
 
 type RedisAdaptor struct {
@@ -25,17 +23,18 @@ func NewRedisAdaptor(
 	}
 }
 
-func buildKey(
+func (ra *RedisAdaptor) buildKey(
 	key string,
 ) string {
-	return fmt.Sprintf(goauthRedisKey, key)
+	return fmt.Sprintf("%s:%v", domain.PkgKeyword, key)
 }
 
-func (adaptor *RedisAdaptor) Set(
+func (ra *RedisAdaptor) Set(
 	ctx context.Context,
 	key string,
 	value interface{},
 	exp time.Duration,
+	pipe redis.Pipeliner,
 ) error {
 	if key == "" || value == nil {
 		return nil
@@ -43,17 +42,22 @@ func (adaptor *RedisAdaptor) Set(
 	if exp == 0 {
 		return errors.New("NonExpiredKeyNotAllowed")
 	}
-	redisKey := buildKey(key)
-	result := adaptor.redisClient.Set(ctx, redisKey, value, exp)
+	redisKey := ra.buildKey(key)
+	var result *redis.StatusCmd
+	if pipe != nil {
+		result = pipe.Set(ctx, redisKey, value, exp)
+	} else {
+		result = ra.redisClient.Set(ctx, redisKey, value, exp)
+	}
 	return result.Err()
 }
 
-func (adaptor *RedisAdaptor) Get(
+func (ra *RedisAdaptor) Get(
 	ctx context.Context,
 	key string,
 ) ([]byte, error) {
-	redisKey := buildKey(key)
-	val, err := adaptor.redisClient.Get(ctx, redisKey).Result()
+	redisKey := ra.buildKey(key)
+	val, err := ra.redisClient.Get(ctx, redisKey).Result()
 	if val == "" {
 		return nil, nil
 	}
@@ -63,16 +67,16 @@ func (adaptor *RedisAdaptor) Get(
 	return nil, err
 }
 
-func (adaptor *RedisAdaptor) GetMultiple(
+func (ra *RedisAdaptor) GetMultiple(
 	ctx context.Context,
 	keys []string,
 ) ([]interface{}, error) {
 	response := make([]interface{}, 0)
 	redisKeys := make([]string, len(keys))
 	for index, key := range keys {
-		redisKeys[index] = buildKey(key)
+		redisKeys[index] = ra.buildKey(key)
 	}
-	val, err := adaptor.redisClient.MGet(ctx, redisKeys...).Result()
+	val, err := ra.redisClient.MGet(ctx, redisKeys...).Result()
 	if errors.Is(err, redis.Nil) {
 		return response, nil
 	}
@@ -82,12 +86,12 @@ func (adaptor *RedisAdaptor) GetMultiple(
 	return val, nil
 }
 
-func (adaptor *RedisAdaptor) Delete(
+func (ra *RedisAdaptor) Delete(
 	ctx context.Context,
 	key string,
 ) (int64, error) {
-	redisKey := buildKey(key)
-	val, err := adaptor.redisClient.Del(ctx, redisKey).Result()
+	redisKey := ra.buildKey(key)
+	val, err := ra.redisClient.Del(ctx, redisKey).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return 0, nil
@@ -97,15 +101,15 @@ func (adaptor *RedisAdaptor) Delete(
 	return val, nil
 }
 
-func (adaptor *RedisAdaptor) DeleteMultiple(
+func (ra *RedisAdaptor) DeleteMultiple(
 	ctx context.Context,
 	keys []string,
 ) (int64, error) {
 	newKeys := make([]string, len(keys))
 	for index, key := range keys {
-		newKeys[index] = buildKey(key)
+		newKeys[index] = ra.buildKey(key)
 	}
-	val, err := adaptor.redisClient.Del(ctx, newKeys...).Result()
+	val, err := ra.redisClient.Del(ctx, newKeys...).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return 0, nil
@@ -115,13 +119,19 @@ func (adaptor *RedisAdaptor) DeleteMultiple(
 	return val, nil
 }
 
-func (adaptor *RedisAdaptor) HSet(
+func (ra *RedisAdaptor) HSet(
 	ctx context.Context,
 	hashKey string,
 	value map[string]string,
+	pipe redis.Pipeliner,
 ) error {
-	redisKey := buildKey(hashKey)
-	_, err := adaptor.redisClient.HSet(ctx, redisKey, value).Result()
+	redisKey := ra.buildKey(hashKey)
+	var err error
+	if pipe != nil {
+		_, err = pipe.HSet(ctx, redisKey, value).Result()
+	} else {
+		_, err = ra.redisClient.HSet(ctx, hashKey, value).Result()
+	}
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return nil
@@ -131,13 +141,13 @@ func (adaptor *RedisAdaptor) HSet(
 	return nil
 }
 
-func (adaptor *RedisAdaptor) HGet(
+func (ra *RedisAdaptor) HGet(
 	ctx context.Context,
 	hashKey string,
 	field string,
 ) ([]byte, error) {
-	redisKey := buildKey(hashKey)
-	val, err := adaptor.redisClient.HGet(ctx, redisKey, field).Result()
+	redisKey := ra.buildKey(hashKey)
+	val, err := ra.redisClient.HGet(ctx, redisKey, field).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return nil, nil
@@ -147,13 +157,13 @@ func (adaptor *RedisAdaptor) HGet(
 	return []byte(val), nil
 }
 
-func (adaptor *RedisAdaptor) HMGet(
+func (ra *RedisAdaptor) HMGet(
 	ctx context.Context,
 	hashKey string,
 	fields []string,
 ) ([]interface{}, error) {
-	redisKey := buildKey(hashKey)
-	val, err := adaptor.redisClient.HMGet(ctx, redisKey, fields...).Result()
+	redisKey := ra.buildKey(hashKey)
+	val, err := ra.redisClient.HMGet(ctx, redisKey, fields...).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return nil, nil
@@ -163,12 +173,12 @@ func (adaptor *RedisAdaptor) HMGet(
 	return val, nil
 }
 
-func (adaptor *RedisAdaptor) HGetAll(
+func (ra *RedisAdaptor) HGetAll(
 	ctx context.Context,
 	hashKey string,
 ) (map[string]string, error) {
-	redisKey := buildKey(hashKey)
-	val, err := adaptor.redisClient.HGetAll(ctx, redisKey).Result()
+	redisKey := ra.buildKey(hashKey)
+	val, err := ra.redisClient.HGetAll(ctx, redisKey).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return nil, nil
@@ -178,13 +188,13 @@ func (adaptor *RedisAdaptor) HGetAll(
 	return val, nil
 }
 
-func (adaptor *RedisAdaptor) HDelete(
+func (ra *RedisAdaptor) HDelete(
 	ctx context.Context,
 	hashKey string,
 	field []string,
 ) (int64, error) {
-	redisKey := buildKey(hashKey)
-	count, err := adaptor.redisClient.HDel(ctx, redisKey, field...).Result()
+	redisKey := ra.buildKey(hashKey)
+	count, err := ra.redisClient.HDel(ctx, redisKey, field...).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return 0, nil
@@ -192,4 +202,49 @@ func (adaptor *RedisAdaptor) HDelete(
 		return 0, err
 	}
 	return count, nil
+}
+
+func (ra *RedisAdaptor) Expire(
+	ctx context.Context,
+	key string,
+	expireIn time.Duration,
+	pipe redis.Pipeliner,
+) error {
+	redisKey := ra.buildKey(key)
+	var err error
+	if pipe != nil {
+		_, err = pipe.Expire(ctx, redisKey, expireIn).Result()
+	} else {
+		_, err = ra.redisClient.Expire(ctx, redisKey, expireIn).Result()
+	}
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func (ra *RedisAdaptor) ExecuteTransaction(
+	ctx context.Context,
+	keys []string,
+	pipelineFunc func(pipe redis.Pipeliner) error,
+) error {
+	// Watch the keys before starting the transaction
+	err := ra.redisClient.Watch(
+		ctx, func(tx *redis.Tx) error {
+			// Execute the provided pipeline function inside the transaction
+			_, err := tx.Pipelined(
+				ctx, func(pipe redis.Pipeliner) error {
+					return pipelineFunc(pipe)
+				},
+			)
+			return err
+		}, keys...,
+	)
+	if err != nil {
+		return err
+	}
+	return nil
 }
