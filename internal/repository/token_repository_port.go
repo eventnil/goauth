@@ -9,7 +9,7 @@ import (
 type IToken interface {
 	Add(
 		ctx context.Context,
-		dto *domain.TokenDTO,
+		dto domain.TokenDTO,
 	) (*domain.TokenDTO, error)
 
 	GetById(

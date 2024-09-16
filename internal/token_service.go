@@ -34,21 +34,18 @@ func (s *TokenService) Create(
 	ctx context.Context,
 	createDTO domain.TokenDTO,
 ) (*domain.AuthTokenDTO, error) {
-	createDTO.UniqueKey = "default"
-	refreshKeyVal := fmt.Sprintf("aid::%s::ro::%s::uk::%s", createDTO.AuthID, createDTO.Role, createDTO.UniqueKey)
+	refreshKeyVal := fmt.Sprintf("aid::%s::ro::%s::uid::%s", createDTO.AuthID, createDTO.Role, createDTO.UniqueID)
 	rid, err := domain.Aes256Encode(refreshKeyVal, s.cfg.EncKey, s.cfg.EncIV)
 	if err != nil {
 		return nil, err
 	}
-	dto, err := s.rep.IToken.Add(
-		ctx,
-		&createDTO,
-	)
+
+	dto, err := s.rep.IToken.Add(ctx, createDTO)
 	if err != nil {
 		return nil, err
 	}
 
-	accessToken, err := s.createJWTToken(ctx, *dto)
+	accessToken, err := s.createJWTToken(*dto)
 	if err != nil {
 		return nil, err
 	}
@@ -100,12 +97,12 @@ func (s *TokenService) Refresh(
 	}
 
 	tokenDTO.Refresh(s.cfg.JwtValidityInMins)
-	tokenDTO, err = s.rep.IToken.Add(ctx, tokenDTO)
+	tokenDTO, err = s.rep.IToken.Add(ctx, *tokenDTO)
 	if err != nil {
 		return nil, err
 	}
 
-	accessToken, err = s.createJWTToken(ctx, *tokenDTO)
+	accessToken, err = s.createJWTToken(*tokenDTO)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +116,7 @@ func (s *TokenService) Refresh(
 	return &res, nil
 }
 
-func (s *TokenService) InvalidateAll(
+func (s *TokenService) Invalidate(
 	ctx context.Context,
 	authID domain.AuthID,
 ) error {
@@ -148,7 +145,7 @@ func (s *TokenService) InvalidateAll(
 	return nil
 }
 
-func (s *TokenService) ValidateAccessToken(
+func (s *TokenService) Validate(
 	ctx context.Context,
 	jwtToken string,
 ) (*domain.TokenDTO, error) {
@@ -167,14 +164,13 @@ func (s *TokenService) ValidateAccessToken(
 	if err != nil {
 		return nil, err
 	}
-	if at == nil {
+	if at == nil || at.ExpiresAt.Before(time.Now().UTC()) {
 		return nil, pkg.ErrAuthTokenExpired
 	}
 	return at, nil
 }
 
 func (s *TokenService) createJWTToken(
-	ctx context.Context,
 	tokenDTO domain.TokenDTO,
 ) (string, error) {
 	current := &jwt.NumericDate{Time: time.Now().UTC()}
@@ -185,7 +181,7 @@ func (s *TokenService) createJWTToken(
 			ExpiresAt: &jwt.NumericDate{Time: tokenDTO.ExpiresAt},
 			IssuedAt:  current,
 			NotBefore: current,
-			Issuer:    "goauth",
+			Issuer:    domain.PkgKeyword,
 		},
 	}
 

@@ -46,7 +46,7 @@ func NewSingletonClient(
 		ts:     internal.NewTokenService(rs, tokenConfig),
 	}
 
-	domain.Logger().Info("GoAuth: ClientInitialised")
+	domain.Logger().Infof("%s: ClientInitialised", domain.LogKeyword)
 }
 
 func GetClient() *authClient {
@@ -79,7 +79,7 @@ func (cl *authClient) Authenticate(
 
 		logger := GetFromContext(ctx)
 		tv := r.Header.Get("Authorization")
-		at, err := cl.ts.ValidateAccessToken(
+		at, err := cl.ts.Validate(
 			ctx,
 			tv,
 		)
@@ -126,6 +126,10 @@ func (cl *authClient) CreateToken(
 	ctx context.Context,
 	dto TokenValue,
 ) (*TokenResponseDTO, error) {
+	err := pkg.Validate.Struct(dto)
+	if err != nil {
+		return nil, pkg.ErrRequiredFieldMissing
+	}
 	accessTokenDTO := dto.ToInternalToken()
 	tokenResponse, err := cl.ts.Create(
 		ctx, accessTokenDTO,
@@ -146,6 +150,10 @@ func (cl *authClient) RefreshToken(
 	refreshKey string,
 	accessToken pkg.JWTToken,
 ) (*TokenResponseDTO, error) {
+	if refreshKey == "" || accessToken == "" {
+		return nil, pkg.ErrRequiredFieldMissing
+	}
+
 	tokenResponse, err := cl.ts.Refresh(
 		ctx, refreshKey, string(accessToken),
 	)
@@ -164,7 +172,10 @@ func (cl *authClient) Validate(
 	ctx context.Context,
 	accessToken pkg.JWTToken,
 ) (*TokenValue, error) {
-	tokenDTO, err := cl.ts.ValidateAccessToken(
+	if accessToken == "" {
+		return nil, pkg.ErrRequiredFieldMissing
+	}
+	tokenDTO, err := cl.ts.Validate(
 		ctx, string(accessToken),
 	)
 	if err != nil {
@@ -181,7 +192,10 @@ func (cl *authClient) Invalidate(
 	ctx context.Context,
 	authID string,
 ) error {
-	err := cl.ts.InvalidateAll(
+	if authID == "" {
+		return pkg.ErrRequiredFieldMissing
+	}
+	err := cl.ts.Invalidate(
 		ctx, domain.AuthID(authID),
 	)
 	return err

@@ -10,7 +10,7 @@ type TokenDTO struct {
 	ID        TokenID   `json:"id"`
 	AuthID    AuthID    `json:"auth_id"`
 	Role      string    `json:"role"`
-	UniqueKey string    `json:"unique_key"`
+	UniqueID  string    `json:"unique_key"`
 	ExpiresAt time.Time `json:"expires_at"`
 	CreatedAt time.Time `json:"created_at"`
 }
