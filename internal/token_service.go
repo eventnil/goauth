@@ -34,7 +34,7 @@ func (s *TokenService) Create(
 	ctx context.Context,
 	createDTO domain.TokenDTO,
 ) (*domain.AuthTokenDTO, error) {
-	refreshKeyVal := fmt.Sprintf("aid::%s::ro::%s::uid::%s", createDTO.AuthID, createDTO.Role, createDTO.UniqueID)
+	refreshKeyVal := fmt.Sprintf("aid::%s::ro::%s::uk::%s", createDTO.AuthID, createDTO.Role, createDTO.UniqueKey)
 	rid, err := domain.Aes256Encode(refreshKeyVal, s.cfg.EncKey, s.cfg.EncIV)
 	if err != nil {
 		return nil, err

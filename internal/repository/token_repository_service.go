@@ -55,7 +55,7 @@ func (s *TokenService) Add(
 	atExpireIn := time.Duration(dto.ExpiresAt.Sub(dto.CreatedAt).Minutes()) * time.Minute
 	authKey := s.buildAuthKey(dto.AuthID)
 	authVal := map[string]string{
-		dto.UniqueID: string(atVal),
+		dto.UniqueKey: string(atVal),
 	}
 
 	err = s.adaptor.ExecuteTransaction(

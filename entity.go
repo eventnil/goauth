@@ -22,9 +22,9 @@ const (
 )
 
 type TokenValue struct {
-	AuthID   string `json:"auth_id" validate:"required,max=100,special_character_validation"`
-	Role     string `json:"role" validate:"required,max=20,special_character_validation"`
-	UniqueID string `json:"unique_id" validate:"max=100,special_character_validation"`
+	AuthID    string `json:"auth_id" validate:"required,max=100,special_character_validation"`
+	Role      string `json:"role" validate:"required,max=20,special_character_validation"`
+	UniqueKey string `json:"unique_key" validate:"max=100,special_character_validation"`
 }
 
 func (e *TokenValue) ToInternalToken() domain.TokenDTO {
@@ -32,12 +32,12 @@ func (e *TokenValue) ToInternalToken() domain.TokenDTO {
 	dto := domain.TokenDTO{
 		AuthID:    domain.AuthID(e.AuthID),
 		Role:      e.Role,
-		UniqueID:  "def",
+		UniqueKey: "def",
 		CreatedAt: ts,
 		ExpiresAt: ts.Add(time.Duration(cl.config.JwtValidityInMins) * time.Minute),
 	}
-	if e.UniqueID != "" {
-		dto.UniqueID = e.UniqueID
+	if e.UniqueKey != "" {
+		dto.UniqueKey = e.UniqueKey
 	}
 
 	return dto
